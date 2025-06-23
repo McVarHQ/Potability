@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:mqtt_client/mqtt_client.dart';
@@ -6,6 +7,8 @@ import 'package:mqtt_client/mqtt_server_client.dart';
 import 'package:water_potability/widgets/log_tile.dart';
 import 'package:water_potability/widgets/sensor_tile.dart';
 import 'package:water_potability/widgets/loading_animation.dart';
+import '../widgets/sidebar.dart';
+import 'package:path_provider/path_provider.dart';
 
 const String apiUrl = 'https://potability-production.up.railway.app/predict';
 const String broker = 'https://a4ldutufacmsk-ats.iot.ap-south-1.amazonaws.com/';
@@ -19,6 +22,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
   final Map<String, dynamic> sensorData = {
     'pH': '--',
     'TDS': '--',
@@ -60,12 +65,16 @@ class _HomeScreenState extends State<HomeScreen> {
         try {
           final parsed = json.decode(jsonStr);
           setState(() {
-            parsed.forEach((key, val) {
-              String k = key.trim();
-              if (sensorData.containsKey(k)) {
-                sensorData[k] = val.toString();
+            for (final key in sensorData.keys) {
+              final matchKey = parsed.keys.firstWhere(
+                (k) => k.toLowerCase().replaceAll(' ', '') ==
+                    key.toLowerCase().replaceAll(' ', ''),
+                orElse: () => '',
+              );
+              if (matchKey != '') {
+                sensorData[key] = parsed[matchKey].toString();
               }
-            });
+            }
           });
         } catch (_) {
           debugPrint("⚠️ MQTT JSON Parse failed");
@@ -114,9 +123,15 @@ class _HomeScreenState extends State<HomeScreen> {
         : Colors.red;
 
     return Scaffold(
+      key: _scaffoldKey,
+      drawer: Sidebar(logs: logs),
       appBar: AppBar(
         title: const Text('Water Potability'),
         backgroundColor: Colors.cyan.shade600,
+        leading: IconButton(
+          icon: const Icon(Icons.menu),
+          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+        ),
       ),
       body: predicting
           ? const LoadingAnimation()
@@ -132,7 +147,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       return SensorTile(
                         label: entry.key,
                         value: entry.value.toString(),
-                        iconPath: 'assets/${entry.key.toLowerCase().replaceAll(" ", "_")}.png',
+                        iconPath:
+                            'assets/${entry.key.toLowerCase().replaceAll(" ", "_")}.png',
                       );
                     }).toList(),
                   ),
@@ -144,7 +160,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           : (logs[0]["result"] == "Potable"
                               ? Colors.green
                               : Colors.red),
-                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 32, vertical: 12),
                     ),
                     onPressed: predict,
                     child: const Text("Predict"),
