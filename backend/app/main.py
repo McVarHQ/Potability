@@ -1,9 +1,7 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from datetime import datetime
 from app.model import predict
-from app.db import insert_log, get_all_logs
-import uvicorn
 
 app = FastAPI()
 
@@ -15,9 +13,9 @@ class WaterData(BaseModel):
     Dissolved_Oxygen: float | str
 
 @app.post("/predict")
-def predict_water(req: Request):
+async def predict_water(request: Request):
     try:
-        input_dict = await req.json()
+        input_dict = await request.json()
         result = predict(input_dict)
         return {
             "timestamp": datetime.now().isoformat(),
@@ -26,7 +24,7 @@ def predict_water(req: Request):
         }
     except Exception as e:
         return JSONResponse(status_code=400, content={"error": str(e)})
-
+    
 @app.get("/logs/download")
 def download_logs():
     return get_all_logs()
