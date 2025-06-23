@@ -4,3 +4,4 @@ joblib
 pandas
 python-dotenv
 psycopg2-binary
+xgboost
