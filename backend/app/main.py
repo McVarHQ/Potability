@@ -15,29 +15,17 @@ class WaterData(BaseModel):
     Dissolved_Oxygen: float | str
 
 @app.post("/predict")
-def predict_water(data: WaterData):
+def predict_water(req: Request):
     try:
-        input_dict = {
-            "pH": float(data.pH),
-            "TDS": float(data.TDS),
-            "Turbidity": float(data.Turbidity),
-            "Temperature": float(data.Temperature),
-            "Dissolved Oxygen": float(data.Dissolved_Oxygen)
+        input_dict = await req.json()
+        result = predict(input_dict)
+        return {
+            "timestamp": datetime.now().isoformat(),
+            "inputs": input_dict,
+            "result": result
         }
-    except:
-        raise HTTPException(status_code=400, detail="Invalid input format. All values must be numeric or strings of numbers.")
-
-    result = predict(input_dict)
-    timestamp = datetime.utcnow().isoformat()
-    
-    log = {
-        "timestamp": timestamp,
-        "inputs": input_dict,
-        "result": result
-    }
-
-    insert_log(log)
-    return log
+    except Exception as e:
+        return JSONResponse(status_code=400, content={"error": str(e)})
 
 @app.get("/logs/download")
 def download_logs():
