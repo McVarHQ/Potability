@@ -2,6 +2,8 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from datetime import datetime
 from app.model import predict
+from pydantic import BaseModel
+
 
 app = FastAPI()
 
