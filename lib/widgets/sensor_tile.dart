@@ -15,27 +15,63 @@ class SensorTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 105,
-      height: 110,
-      padding: const EdgeInsets.all(8),
+      width: 110,
+      height: 120,
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.cyan.shade50,
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 2)],
+        gradient: LinearGradient(
+          colors: [Colors.cyan.shade50, Colors.cyan.shade100],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 6,
+            offset: Offset(2, 3),
+          ),
+        ],
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Image.asset(iconPath, height: 32),
-          const SizedBox(height: 6),
+          Container(
+            height: 38,
+            width: 38,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white,
+              boxShadow: const [
+                BoxShadow(
+                  color: Colors.black26,
+                  blurRadius: 3,
+                  offset: Offset(1, 2),
+                )
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(6.0),
+              child: Image.asset(iconPath),
+            ),
+          ),
+          const SizedBox(height: 8),
           Text(
             label,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey.shade800,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
             value,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
           ),
         ],
       ),

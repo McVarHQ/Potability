@@ -1,51 +1,60 @@
+import 'package:flutter/material.dart';
+import 'package:potability/widgets/log_tile.dart';
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
 
 class Sidebar extends StatelessWidget {
   final List<Map<String, dynamic>> logs;
+
   const Sidebar({super.key, required this.logs});
 
-  Future<void> downloadLogs(BuildContext context) async {
-    try {
-      final dir = await getApplicationDocumentsDirectory();
-      final file = File('${dir.path}/logs.txt');
-      await file.writeAsString(jsonEncode(logs));
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Logs downloaded to ${file.path}')),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Download failed: $e')),
-      );
-    }
+  void _downloadLogs(BuildContext context) async {
+    final jsonStr = const JsonEncoder.withIndent('  ').convert(logs);
+    final directory = Directory.systemTemp;
+    final file = File('${directory.path}/potability_logs.json');
+    await file.writeAsString(jsonStr);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('📁 Logs saved to ${file.path}')),
+    );
+
+    // TODO: Add sharing or opening logic if needed
   }
 
   @override
   Widget build(BuildContext context) {
     return Drawer(
-      backgroundColor: Colors.white,
-      child: ListView(
-        padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 12),
-        children: [
-          const Text("Settings",
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.download),
-            title: const Text("Download Logs"),
-            onTap: () {
-              Navigator.pop(context);
-              downloadLogs(context);
-            },
-          ),
-          const Divider(),
-          const ListTile(
-            leading: Icon(Icons.info_outline),
-            title: Text("App Version 1.0"),
-          ),
-        ],
+      child: SafeArea(
+        child: Column(
+          children: [
+            const ListTile(
+              title: Text(
+                'Potability Logs',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+            ),
+            const Divider(),
+            Expanded(
+              child: logs.isEmpty
+                  ? const Center(child: Text("No logs yet."))
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      itemCount: logs.length,
+                      itemBuilder: (context, index) {
+                        return LogTile(log: logs[index]);
+                      },
+                    ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: ElevatedButton.icon(
+                onPressed: () => _downloadLogs(context),
+                icon: const Icon(Icons.download),
+                label: const Text("Download Logs"),
+              ),
+            )
+          ],
+        ),
       ),
     );
   }

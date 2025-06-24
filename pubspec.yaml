@@ -1,0 +1,44 @@
+name: potability
+description: A smart water potability prediction app
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+  lottie: ^3.3.1
+  mqtt_client: ^10.0.0
+  http: ^1.2.1
+  path_provider: ^2.1.2
+  share_plus: ^11.0.0
+  flutter_svg: ^2.0.10
+  file_picker: ^10.2.0
+
+dependency_overrides:
+  material_color_utilities: ^0.13.0
+  meta: ^1.17.0
+  mime: ^2.0.0
+  petitparser: ^7.0.0
+  vector_math: ^2.2.0
+  xml: ^6.6.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/water.json
+    - assets/ph.png
+    - assets/temperature.png
+    - assets/turbidity.png
+    - assets/tds.png
+    - assets/do.png
+    - assets/aws/cert.pem
+    - assets/aws/private.key
+    - assets/aws/CA.pem
