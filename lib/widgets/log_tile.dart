@@ -1,32 +1,58 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+const aqua = Color(0xFF00BCD4);
+
 class LogTile extends StatefulWidget {
   final Map<String, dynamic> log;
+  final bool expanded;
+  final VoidCallback onTap;
+  final VoidCallback onDelete;
 
-  const LogTile({super.key, required this.log});
+  const LogTile({
+    super.key,
+    required this.log,
+    required this.expanded,
+    required this.onTap,
+    required this.onDelete,
+  });
 
   @override
   State<LogTile> createState() => _LogTileState();
 }
 
 class _LogTileState extends State<LogTile> {
-  bool expanded = false;
-  bool deleted = false;
-
   @override
   Widget build(BuildContext context) {
-    if (deleted) return const SizedBox.shrink();
-
     final isPotable = widget.log["result"] == "Potable";
-    final tileColor = isPotable ? Colors.green.shade50 : Colors.red.shade50;
-    final borderColor = isPotable ? Colors.green.shade300 : Colors.red.shade300;
-    final icon = isPotable ? Icons.check_circle : Icons.warning_amber;
+    final isError = widget.log["result"].toString().toLowerCase().contains("error");
 
-    return AnimatedOpacity(
-      opacity: deleted ? 0.0 : 1.0,
-      duration: const Duration(milliseconds: 300),
-      child: Container(
+    Color tileColor;
+    Color borderColor;
+    IconData icon;
+    String resultText;
+
+    if (isError) {
+      tileColor = Colors.yellow.shade100;
+      borderColor = Colors.orange;
+      icon = Icons.error_outline;
+      resultText = "Error";
+    } else if (isPotable) {
+      tileColor = Colors.green.shade50;
+      borderColor = Colors.green.shade300;
+      icon = Icons.check_circle;
+      resultText = "Potable";
+    } else {
+      tileColor = Colors.red.shade50;
+      borderColor = Colors.red.shade300;
+      icon = Icons.block;
+      resultText = "Not Potable";
+    }
+
+    return GestureDetector(
+      onTap: widget.onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
@@ -44,7 +70,7 @@ class _LogTileState extends State<LogTile> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    "Result: ${widget.log["result"]}",
+                    "Result: $resultText",
                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -55,7 +81,7 @@ class _LogTileState extends State<LogTile> {
               "Time: ${widget.log["timestamp"]}",
               style: const TextStyle(fontSize: 13, color: Colors.black54),
             ),
-            if (expanded) ...[
+            if (widget.expanded) ...[
               const Divider(height: 16),
               ...widget.log["inputs"].entries.map<Widget>((e) {
                 return Padding(
@@ -84,25 +110,11 @@ class _LogTileState extends State<LogTile> {
                   ),
                   IconButton(
                     icon: const Icon(Icons.delete_outline, size: 20),
-                    onPressed: () => setState(() => deleted = true),
+                    onPressed: widget.onDelete,
                   ),
                 ],
               )
             ],
-            GestureDetector(
-              onTap: () => setState(() => expanded = !expanded),
-              child: Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  expanded ? "Hide details ▲" : "Show details ▼",
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Theme.of(context).primaryColor,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            )
           ],
         ),
       ),

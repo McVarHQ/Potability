@@ -28,13 +28,13 @@ class _LoadingAnimationState extends State<LoadingAnimation>
   Widget build(BuildContext context) {
     return Center(
       child: Lottie.asset(
-        'assets/water.json',       // ✅ Use the .json file
+        'assets/water.json',
         controller: _controller,
-        width: 150,
+        width: 180, // slightly larger to match result tile region
         onLoaded: (composition) {
           _controller
             ..duration = composition.duration
-            ..forward();           // ✅ Play only once
+            ..forward();
         },
       ),
     );

@@ -33,12 +33,25 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/water.json
     - assets/ph.png
     - assets/temperature.png
     - assets/turbidity.png
     - assets/tds.png
     - assets/do.png
+    - assets/block.png
+    - assets/clear.png
+    - assets/danger.png
+    - assets/error.png
+    - assets/filter.png
+    - assets/leaf.png
+    - assets/water.json
+    - assets/water_full.json
+    - assets/menu.json
     - assets/aws/cert.pem
     - assets/aws/private.key
     - assets/aws/CA.pem
+
+  fonts:
+    - family: SairaExpanded
+      fonts:
+        - asset: assets/fonts/Saira_Expanded-Medium.ttf

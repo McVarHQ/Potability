@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
-import 'package:potability/widgets/loading_animation.dart';
 import 'package:potability/screens/home_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -12,13 +11,24 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
-  bool _start = false;
   late final AnimationController _controller;
+  bool showStart = false;
+  bool hasStarted = false;
 
   @override
   void initState() {
     super.initState();
+
     _controller = AnimationController(vsync: this);
+
+    _controller.addListener(() {
+      if (_controller.value >= 0.5 && !showStart && !hasStarted) {
+        _controller.stop();
+        setState(() {
+          showStart = true;
+        });
+      }
+    });
   }
 
   @override
@@ -28,56 +38,69 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   void _startApp() {
-    setState(() => _start = true);
-    Future.delayed(const Duration(seconds: 2), () {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
-      );
+    setState(() {
+      hasStarted = true;
+      showStart = false;
+    });
+
+    _controller.forward(from: _controller.value);
+
+    _controller.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        );
+      }
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+
     return Scaffold(
-      body: Center(
-        child: !_start
-            ? SingleChildScrollView(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: MediaQuery.of(context).size.height,
+      backgroundColor: Colors.white,
+      body: Stack(
+        children: [
+          // Lottie animation stretched to fill the screen
+          SizedBox(
+            height: screenSize.height,
+            width: screenSize.width,
+            child: Lottie.asset(
+              'assets/water_full.json',
+              controller: _controller,
+              fit: BoxFit.cover,
+              onLoaded: (composition) {
+                _controller
+                  ..duration = composition.duration
+                  ..forward();
+              },
+            ),
+          ),
+
+          // START button overlay
+          if (showStart)
+            Center(
+              child: ElevatedButton(
+                onPressed: _startApp,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF486097),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 40, vertical: 18),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
                   ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text(
-                        'Water Potability',
-                        style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 20),
-                      Lottie.asset(
-                        'assets/water.json',
-                        width: 200,
-                        controller: _controller,
-                        onLoaded: (composition) {
-                          _controller
-                            ..duration = composition.duration
-                            ..forward(); // Play once
-                        },
-                        errorBuilder: (context, error, stackTrace) {
-                          return const Text('❌ Animation failed to load');
-                        },
-                      ),
-                      const SizedBox(height: 20),
-                      ElevatedButton(
-                        onPressed: _startApp,
-                        child: const Text('Start'),
-                      ),
-                    ],
+                  textStyle: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'SairaExpanded', // 👈 Use your custom font
                   ),
                 ),
-              )
-            : const LoadingAnimation(),
+                child: const Text("START"),
+              ),
+            ),
+        ],
       ),
     );
   }

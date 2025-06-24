@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:lottie/lottie.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'package:potability/widgets/log_tile.dart';
@@ -15,6 +16,7 @@ import 'package:potability/widgets/sidebar.dart';
 const String apiUrl = 'https://potability-production.up.railway.app/predict';
 const String broker = 'a33cad5yg72pky-ats.iot.ap-southeast-2.amazonaws.com';
 const String topic = 'esp32/pub';
+const aqua = Color(0xFF00BCD4);
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -31,12 +33,19 @@ class _HomeScreenState extends State<HomeScreen> {
     'TDS': '--',
     'Turbidity': '--',
     'Temperature': '--',
-    'Dissolved_Oxygen': '--',
+    'Dissolved Oxygen': '--',
   };
 
   final List<Map<String, dynamic>> logs = [];
   bool predicting = false;
   MqttServerClient? client;
+
+  bool awsConnected = false;
+  bool backendConnected = false;
+  int? expandedIndex;
+
+  String? predictionResult;
+  String? errorMessage;
 
   @override
   void initState() {
@@ -49,12 +58,14 @@ class _HomeScreenState extends State<HomeScreen> {
     client!
       ..port = 8883
       ..secure = true
-      ..logging(on: true)
-      ..onDisconnected = () => debugPrint("🔌 Disconnected");
+      ..logging(on: false)
+      ..onDisconnected = () {
+        setState(() => awsConnected = false);
+        debugPrint("🔌 Disconnected");
+      };
 
     try {
       final tempDir = await getTemporaryDirectory();
-
       final caPath = '${tempDir.path}/CA.pem';
       final certPath = '${tempDir.path}/cert.pem';
       final keyPath = '${tempDir.path}/private.key';
@@ -67,17 +78,17 @@ class _HomeScreenState extends State<HomeScreen> {
       context.setTrustedCertificates(caPath);
       context.useCertificateChain(certPath);
       context.usePrivateKey(keyPath);
-
       client!.securityContext = context;
 
       await client!.connect();
+      setState(() => awsConnected = true);
       debugPrint("✅ MQTT connected");
 
       client!.subscribe(topic, MqttQos.atMostOnce);
       client!.updates!.listen((List<MqttReceivedMessage<MqttMessage>> c) {
         final msg = (c[0].payload as MqttPublishMessage).payload.message;
         final jsonStr = String.fromCharCodes(msg);
-        debugPrint("📥 MQTT message received: $jsonStr");
+        debugPrint("📥 MQTT: $jsonStr");
 
         try {
           final parsed = json.decode(jsonStr);
@@ -86,19 +97,22 @@ class _HomeScreenState extends State<HomeScreen> {
             sensorData['TDS'] = parsed['totaldissolvedsolids'].toString();
             sensorData['Turbidity'] = parsed['turbidity'].toString();
             sensorData['Temperature'] = parsed['temperature'].toString();
-            sensorData['Dissolved_Oxygen'] = parsed['dissolvedoxygen'].toString();
+            sensorData['Dissolved Oxygen'] = parsed['dissolvedoxygen'].toString();
           });
         } catch (e) {
-          debugPrint("⚠️ Failed to parse MQTT payload: $e");
+          debugPrint("⚠️ MQTT parse error: $e");
         }
       });
     } catch (e) {
-      debugPrint('❌ MQTT connect error: $e');
+      debugPrint('❌ MQTT error: $e');
     }
   }
 
   Future<void> predict() async {
-    setState(() => predicting = true);
+    setState(() {
+      predicting = true;
+      errorMessage = null;
+    });
 
     try {
       final data = {
@@ -106,10 +120,8 @@ class _HomeScreenState extends State<HomeScreen> {
         "totaldissolvedsolids": double.tryParse(sensorData["TDS"].toString()) ?? 0.0,
         "turbidity": double.tryParse(sensorData["Turbidity"].toString()) ?? 0.0,
         "temperature": double.tryParse(sensorData["Temperature"].toString()) ?? 0.0,
-        "dissolvedoxygen": double.tryParse(sensorData["Dissolved_Oxygen"].toString()) ?? 0.0,
+        "dissolvedoxygen": double.tryParse(sensorData["Dissolved Oxygen"].toString()) ?? 0.0,
       };
-
-      debugPrint("📤 Sending to API: $data");
 
       final response = await http.post(
         Uri.parse(apiUrl),
@@ -117,105 +129,183 @@ class _HomeScreenState extends State<HomeScreen> {
         body: json.encode(data),
       );
 
-      debugPrint("🔁 API response: ${response.body}");
-
       if (response.statusCode == 200) {
         final result = json.decode(response.body);
+        predictionResult = result["result"];
         logs.insert(0, result);
+        setState(() => backendConnected = true);
       } else {
-        logs.insert(0, {
-          "timestamp": DateTime.now().toIso8601String(),
-          "inputs": data,
-          "result": "Prediction failed"
-        });
+        throw Exception("Prediction failed");
       }
     } catch (e) {
+      predictionResult = "Error";
+      errorMessage = "Something went wrong.";
       logs.insert(0, {
         "timestamp": DateTime.now().toIso8601String(),
         "inputs": {},
         "result": "Prediction error: $e"
       });
-      debugPrint("❌ Prediction exception: $e");
+      setState(() => backendConnected = false);
     }
 
     setState(() => predicting = false);
   }
 
+  Widget buildResultTile() {
+    if (predicting) {
+      return Lottie.asset('assets/water.json', width: 140, height: 140);
+    }
+
+    if (predictionResult == null) return const SizedBox(height: 140, width: 140);
+
+    String label = '';
+    String icon = '';
+    Color color;
+
+    switch (predictionResult) {
+      case "Potable":
+        icon = 'leaf.png';
+        label = 'Potable';
+        color = Colors.green;
+        break;
+      case "Not Potable":
+        icon = 'block.png';
+        label = 'Not Potable';
+        color = Colors.red;
+        break;
+      default:
+        icon = 'danger.png';
+        label = 'Error';
+        color = Colors.yellow[800]!;
+        break;
+    }
+
+    return Container(
+      width: 140,
+      height: 140,
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color, width: 2),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Image.asset('assets/$icon', width: 40),
+          const SizedBox(height: 8),
+          Text(label, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
+          if (label == "Error" && errorMessage != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4),
+              child: Text(errorMessage!, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)),
+            ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final resultColor = logs.isNotEmpty && logs[0]["result"] == "Potable"
-        ? Colors.green
-        : Colors.red;
+    final tiles = [
+      SensorTile(label: "pH", value: sensorData["pH"].toString(), iconPath: 'assets/ph.png'),
+      SensorTile(label: "TDS", value: sensorData["TDS"].toString(), iconPath: 'assets/tds.png'),
+      SensorTile(label: "Turbidity", value: sensorData["Turbidity"].toString(), iconPath: 'assets/turbidity.png'),
+      SensorTile(label: "Temperature", value: sensorData["Temperature"].toString(), iconPath: 'assets/temperature.png'),
+    ];
 
     return Scaffold(
       key: _scaffoldKey,
-      drawer: Sidebar(logs: logs),
+      drawer: Sidebar(
+        logs: logs,
+        awsConnected: awsConnected,
+        backendConnected: backendConnected,
+      ),
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('Water Potability'),
-        backgroundColor: Colors.cyan.shade600,
-        elevation: 2,
+        backgroundColor: aqua,
+        elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.menu),
           onPressed: () => _scaffoldKey.currentState?.openDrawer(),
         ),
       ),
-      body: predicting
-          ? const LoadingAnimation()
-          : SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              child: Column(
-                children: [
-                  Wrap(
-                    alignment: WrapAlignment.center,
-                    spacing: 16,
-                    runSpacing: 16,
-                    children: sensorData.entries.map((entry) {
-                      return SensorTile(
-                        label: entry.key,
-                        value: entry.value.toString(),
-                        iconPath:
-                            'assets/${entry.key.toLowerCase().replaceAll(" ", "_")}.png',
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 32),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.water_drop),
+      body: Stack(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Column(
+              children: [
+                SensorTile(
+                  label: "Dissolved Oxygen",
+                  value: sensorData["Dissolved Oxygen"].toString(),
+                  iconPath: 'assets/do.png',
+                  wide: true,
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        children: [tiles[0], const SizedBox(height: 8), tiles[1]],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    buildResultTile(),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        children: [tiles[2], const SizedBox(height: 8), tiles[3]],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: predicting ? null : predict,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: logs.isEmpty
-                          ? Colors.cyan
-                          : (logs[0]["result"] == "Potable"
-                              ? Colors.green
-                              : Colors.red),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 36, vertical: 14),
-                      textStyle: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      backgroundColor: predicting ? Colors.grey : aqua,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     ),
-                    onPressed: predict,
-                    label: const Text("Predict Water Quality"),
+                    child: const Text("Predict", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                   ),
-                  const SizedBox(height: 12),
-                  if (logs.isNotEmpty)
-                    TextButton.icon(
-                      onPressed: () {
-                        setState(() => logs.clear());
-                      },
-                      icon: const Icon(Icons.clear),
-                      label: const Text("Clear Logs"),
-                    ),
-                  const SizedBox(height: 8),
-                  ...logs.map((log) => LogTile(log: log)),
-                  const SizedBox(height: 32),
-                ],
+                ),
+              ],
+            ),
+          ),
+          if (logs.isNotEmpty && !predicting)
+            Positioned.fill(
+              top: MediaQuery.of(context).size.height * 0.55,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 24, 16, 48),
+                children: logs.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final log = entry.value;
+
+                  return LogTile(
+                    log: log,
+                    expanded: expandedIndex == index,
+                    onTap: () {
+                      setState(() {
+                        expandedIndex = expandedIndex == index ? null : index;
+                      });
+                    },
+                    onDelete: () {
+                      setState(() {
+                        logs.removeAt(index);
+                        if (expandedIndex == index) expandedIndex = null;
+                      });
+                    },
+                  );
+                }).toList(),
               ),
             ),
+        ],
+      ),
     );
   }
 }
