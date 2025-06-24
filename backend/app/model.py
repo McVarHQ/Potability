@@ -7,10 +7,8 @@ SCALER_PATH = "model/xgb_baseline_scaler.save"
 
 def predict(input_dict):
     model = joblib.load(MODEL_PATH)
-    try:
-        scaler = joblib.load(SCALER_PATH)
-    except:
-        scaler = None
+    scaler = joblib.load(SCALER_PATH)
+
 
     REQUIRED_KEYS = ["ph", "totaldissolvedsolids", "turbidity", "temperature", "dissolvedoxygen"]
 
