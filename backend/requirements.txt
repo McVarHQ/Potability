@@ -6,3 +6,5 @@ python-dotenv
 psycopg2-binary
 xgboost
 asyncpg
+scikit-learn
+python-dotenv
