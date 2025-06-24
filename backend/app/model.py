@@ -33,7 +33,6 @@ def predict(input_dict):
     ]], columns=["pH", "TDS", "Turbidity", "Temperature", "Dissolved Oxygen"])
 
     df = pd.DataFrame(input_data)
-    if scaler:
-        df = scaler.transform(df)
+    df = scaler.transform(df)
     result = model.predict(df)[0]
     return "Potable" if result == 1 else "Not Potable"
