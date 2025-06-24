@@ -69,6 +69,7 @@ class _SplashScreenState extends State<SplashScreen>
       backgroundColor: Colors.white,
       body: Stack(
         children: [
+          // Fullscreen Lottie background
           SizedBox(
             height: screenSize.height,
             width: screenSize.width,
@@ -82,29 +83,20 @@ class _SplashScreenState extends State<SplashScreen>
               },
             ),
           ),
+
+          // START text only (no box, no background)
           if (showStart)
             Center(
               child: GestureDetector(
                 onTap: _startApp,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: startColor, width: 2),
-                    borderRadius: BorderRadius.circular(12),
-                    color: Colors.white.withOpacity(0.8),
-                  ),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      "START",
-                      style: TextStyle(
-                        fontSize: screenSize.width * 0.12, // ~90% width
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'SairaExpanded',
-                        color: startColor,
-                        letterSpacing: 4,
-                      ),
-                    ),
+                child: Text(
+                  "START",
+                  style: TextStyle(
+                    fontSize: screenSize.width * 0.12,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'SairaExpanded',
+                    color: startColor,
+                    letterSpacing: 4,
                   ),
                 ),
               ),

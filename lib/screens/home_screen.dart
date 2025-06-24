@@ -15,6 +15,7 @@ import 'package:potability/widgets/sidebar.dart';
 
 const aqua = Color(0xFF00BCD4);
 const String apiUrl = 'https://potability-production.up.railway.app/predict';
+const String logsApiUrl = 'https://potability-production.up.railway.app/logs';
 const String broker = 'a33cad5yg72pky-ats.iot.ap-southeast-2.amazonaws.com';
 const String topic = 'esp32/pub';
 
@@ -34,7 +35,10 @@ class _HomeScreenState extends State<HomeScreen> {
     'Dissolved Oxygen': '--',
   };
 
-  final List<Map<String, dynamic>> logs = [];
+  List<Map<String, dynamic>> logs = [];
+  List<Map<String, dynamic>> postgresLogs = []; // Add this to hold logs fetched at startup
+  List<Map<String, dynamic>> filteredLogs = [];
+
   bool predicting = false;
   MqttServerClient? client;
   bool awsConnected = false;
@@ -48,6 +52,23 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     connectToMQTT();
+    preloadLogsFromDB();
+  }
+
+  Future<void> preloadLogsFromDB() async {
+    try {
+      final res = await http.get(Uri.parse(logsApiUrl));
+      if (res.statusCode == 200) {
+        final List<dynamic> jsonList = json.decode(res.body);
+        setState(() {
+          logs = jsonList.cast<Map<String, dynamic>>();
+          filteredLogs = List.from(logs);
+          backendConnected = true;
+        });
+      }
+    } catch (e) {
+      debugPrint("❌ Failed to preload logs: $e");
+    }
   }
 
   Future<void> connectToMQTT() async {
@@ -58,7 +79,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ..logging(on: false)
       ..onDisconnected = () {
         setState(() => awsConnected = false);
-        debugPrint("🔌 Disconnected");
+        debugPrint("🔌 Disconnected from MQTT");
       };
 
     try {
@@ -104,7 +125,6 @@ class _HomeScreenState extends State<HomeScreen> {
       debugPrint('❌ MQTT error: $e');
     }
   }
-
   Future<void> predict() async {
     setState(() {
       predicting = true;
@@ -130,6 +150,7 @@ class _HomeScreenState extends State<HomeScreen> {
         final result = json.decode(response.body);
         predictionResult = result["result"];
         logs.insert(0, result);
+        filteredLogs = List.from(logs);
         setState(() => backendConnected = true);
       } else {
         throw Exception("Prediction failed");
@@ -137,11 +158,13 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (e) {
       predictionResult = "Error";
       errorMessage = "Something went wrong.";
-      logs.insert(0, {
+      final fallback = {
         "timestamp": DateTime.now().toIso8601String(),
         "inputs": {},
         "result": "Prediction error: $e"
-      });
+      };
+      logs.insert(0, fallback);
+      filteredLogs = List.from(logs);
       setState(() => backendConnected = false);
     }
 
@@ -157,7 +180,9 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    if (predictionResult == null) return const SizedBox(height: 140, width: 140);
+    if (predictionResult == null) {
+      return const SizedBox(height: 140, width: 140);
+    }
 
     String label = '';
     String icon = '';
@@ -182,32 +207,86 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     return Container(
-      width: 160,
-      height: 160,
+      width: MediaQuery.of(context).size.width * 0.3,
+      height: MediaQuery.of(context).size.width * 0.3,
       decoration: BoxDecoration(
         color: color.withOpacity(0.15),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: color, width: 2),
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          SvgPicture.asset('assets/$icon', width: 48, color: Colors.white),
-          const SizedBox(height: 10),
-          Text(
-            label,
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color),
-          ),
-          if (label == "Error" && errorMessage != null)
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Text(errorMessage!, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SvgPicture.asset('assets/$icon', width: 48, color: color),
+            const SizedBox(height: 10),
+            Text(
+              label,
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color),
             ),
-        ],
+            if (label == "Error" && errorMessage != null)
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Text(
+                  errorMessage!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
 
+  void showFilterDialog() {
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.all_inclusive),
+            title: const Text("Show All"),
+            onTap: () {
+              setState(() => filteredLogs = List.from(logs));
+              Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.water_drop),
+            title: const Text("Only Potable"),
+            onTap: () {
+              setState(() => filteredLogs = logs
+                  .where((log) => log['result'] == 'Potable')
+                  .toList());
+              Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.block),
+            title: const Text("Only Not Potable"),
+            onTap: () {
+              setState(() => filteredLogs = logs
+                  .where((log) => log['result'] == 'Not Potable')
+                  .toList());
+              Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.warning),
+            title: const Text("Only Errors"),
+            onTap: () {
+              setState(() => filteredLogs = logs
+                  .where((log) => log['result'].toString().toLowerCase().contains("error"))
+                  .toList());
+              Navigator.pop(context);
+            },
+          ),
+        ],
+      ),
+    );
+  }
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
@@ -221,7 +300,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       key: _scaffoldKey,
-      drawer: Sidebar(logs: logs, awsConnected: awsConnected, backendConnected: backendConnected),
+      drawer: Sidebar(
+        postgresLogs: postgresLogs,
+        awsConnected: awsConnected,
+        backendConnected: backendConnected,
+      ),
       backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('Water Potability'),
@@ -232,117 +315,114 @@ class _HomeScreenState extends State<HomeScreen> {
           onPressed: () => _scaffoldKey.currentState?.openDrawer(),
         ),
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Column(
-                children: [
-                  SensorTile(
-                    label: "Dissolved Oxygen",
-                    value: sensorData["Dissolved Oxygen"].toString(),
-                    iconPath: 'assets/do.svg',
-                    wide: true,
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Expanded(child: Column(children: [tiles[0], const SizedBox(height: 8), tiles[1]])),
-                      const SizedBox(width: 12),
-                      buildResultTile(),
-                      const SizedBox(width: 12),
-                      Expanded(child: Column(children: [tiles[2], const SizedBox(height: 8), tiles[3]])),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: predicting ? null : predict,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: predicting ? Colors.grey : aqua,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      ),
-                      child: const Text("Predict", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Column(
+                  children: [
+                    SensorTile(
+                      label: "Dissolved Oxygen",
+                      value: sensorData["Dissolved Oxygen"].toString(),
+                      iconPath: 'assets/do.svg',
+                      wide: true,
                     ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (logs.isNotEmpty)
-            SizedBox(
-              height: screenHeight * 0.3,
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    const SizedBox(height: 10),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        IconButton(
-                          icon: SvgPicture.asset('assets/clear.svg', width: 24, color: aqua),
-                          onPressed: () {
-                            showDialog(
-                              context: context,
-                              builder: (_) => AlertDialog(
-                                title: const Text("Clear Logs?"),
-                                content: const Text("Are you sure you want to delete all logs?"),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context),
-                                    child: const Text("Cancel"),
-                                  ),
-                                  TextButton(
-                                    onPressed: () {
-                                      setState(() => logs.clear());
-                                      Navigator.pop(context);
-                                    },
-                                    child: const Text("Clear"),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                        IconButton(
-                          icon: SvgPicture.asset('assets/filter.svg', width: 24, color: aqua),
-                          onPressed: () {
-                            // TODO: Add filter logic
-                          },
-                        ),
+                        Expanded(child: Column(children: [tiles[0], const SizedBox(height: 8), tiles[1]])),
+                        const SizedBox(width: 12),
+                        buildResultTile(),
+                        const SizedBox(width: 12),
+                        Expanded(child: Column(children: [tiles[2], const SizedBox(height: 8), tiles[3]])),
                       ],
                     ),
-                  ),
-                  Expanded(
-                    child: ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                      itemCount: logs.length,
-                      itemBuilder: (context, index) {
-                        final log = logs[index];
-                        final localTime = DateTime.tryParse(log["timestamp"] ?? "")?.toLocal().toString() ?? "";
-                        log["timestamp"] = localTime;
-                        return LogTile(
-                          log: log,
-                          expanded: expandedIndex == index,
-                          onTap: () => setState(() {
-                            expandedIndex = expandedIndex == index ? null : index;
-                          }),
-                          onDelete: () => setState(() {
-                            logs.removeAt(index);
-                            if (expandedIndex == index) expandedIndex = null;
-                          }),
-                        );
-                      },
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: predicting ? null : predict,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: predicting ? Colors.grey : aqua,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                        child: const Text("Predict", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 10),
+                    if (logs.isNotEmpty) ...[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          IconButton(
+                            icon: SvgPicture.asset('assets/clear.svg', width: 24, color: aqua),
+                            onPressed: () {
+                              showDialog(
+                                context: context,
+                                builder: (_) => AlertDialog(
+                                  title: const Text("Clear Logs?"),
+                                  content: const Text("Are you sure you want to delete all logs?"),
+                                  actions: [
+                                    TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+                                    TextButton(
+                                      onPressed: () {
+                                        setState(() {
+                                          logs.clear();
+                                          filteredLogs.clear();
+                                          expandedIndex = null;
+                                        });
+                                        Navigator.pop(context);
+                                      },
+                                      child: const Text("Clear"),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                          IconButton(
+                            icon: SvgPicture.asset('assets/filter.svg', width: 24, color: aqua),
+                            onPressed: showFilterDialog,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        itemCount: filteredLogs.length,
+                        itemBuilder: (context, index) {
+                          final log = filteredLogs[index];
+                          final localTime = DateTime.tryParse(log["timestamp"] ?? "")?.toLocal().toString() ?? "";
+                          log["timestamp"] = localTime;
+                          return LogTile(
+                            log: log,
+                            expanded: expandedIndex == index,
+                            onTap: () => setState(() {
+                              expandedIndex = expandedIndex == index ? null : index;
+                            }),
+                            onDelete: () => setState(() {
+                              final toDelete = filteredLogs[index];
+                              logs.remove(toDelete);
+                              filteredLogs.removeAt(index);
+                              if (expandedIndex == index) expandedIndex = null;
+                            }),
+                          );
+                        },
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
-        ],
+          );
+        },
       ),
     );
   }

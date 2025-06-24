@@ -14,7 +14,9 @@ class DbLogsScreen extends StatefulWidget {
 
 class _DbLogsScreenState extends State<DbLogsScreen> {
   List<Map<String, dynamic>> dbLogs = [];
+  int? expandedIndex;
   bool loading = true;
+  String? error;
 
   @override
   void initState() {
@@ -36,6 +38,7 @@ class _DbLogsScreenState extends State<DbLogsScreen> {
       }
     } catch (e) {
       setState(() {
+        error = 'Error loading logs.';
         dbLogs = [];
         loading = false;
       });
@@ -45,28 +48,34 @@ class _DbLogsScreenState extends State<DbLogsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Database Logs")),
+      appBar: AppBar(
+        title: const Text("Database Logs"),
+        backgroundColor: const Color(0xFF00BCD4),
+      ),
       body: loading
           ? const Center(child: CircularProgressIndicator())
-          : dbLogs.isEmpty
-              ? const Center(child: Text("No logs available."))
-              : ListView.builder(
-                  padding: const EdgeInsets.all(12),
-                  itemCount: dbLogs.length,
-                  itemBuilder: (context, index) {
-                    return LogTile(
-                      log: dbLogs[index],
-                      expanded: false,
-                      onTap: () => setState(() {
-                        for (int i = 0; i < dbLogs.length; i++) {
-                          if (i != index) dbLogs[i]['expanded'] = false;
-                        }
-                        dbLogs[index]['expanded'] = !(dbLogs[index]['expanded'] ?? false);
-                      }),
-                      onDelete: () {},
-                    );
-                  },
-                ),
+          : error != null
+              ? Center(child: Text(error!))
+              : dbLogs.isEmpty
+                  ? const Center(child: Text("No logs available."))
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(12),
+                      itemCount: dbLogs.length,
+                      itemBuilder: (context, index) {
+                        final log = dbLogs[index];
+                        final localTime = DateTime.tryParse(log["timestamp"] ?? "")?.toLocal().toString() ?? "";
+                        log["timestamp"] = localTime;
+
+                        return LogTile(
+                          log: log,
+                          expanded: expandedIndex == index,
+                          onTap: () => setState(() {
+                            expandedIndex = expandedIndex == index ? null : index;
+                          }),
+                          onDelete: () {},
+                        );
+                      },
+                    ),
     );
   }
 }

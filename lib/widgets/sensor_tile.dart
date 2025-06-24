@@ -20,7 +20,7 @@ class SensorTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tileWidth = wide ? double.infinity : 110.0;
-    final tileHeight = wide ? 70.0 : 140.0; // increased height to avoid overflow
+    final tileHeight = wide ? 70.0 : 140.0;
 
     return Container(
       width: tileWidth,
@@ -81,7 +81,7 @@ class SensorTile extends StatelessWidget {
                       child: Text(
                         value,
                         style: const TextStyle(
-                          fontSize: 18,
+                          fontSize: 20,
                           fontWeight: FontWeight.bold,
                           color: Colors.black87,
                         ),
@@ -127,13 +127,13 @@ class SensorTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 SizedBox(
-                  height: 22,
+                  height: 24,
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
                     child: Text(
                       value,
                       style: const TextStyle(
-                        fontSize: 18,
+                        fontSize: 20,
                         fontWeight: FontWeight.bold,
                         color: Colors.black87,
                       ),

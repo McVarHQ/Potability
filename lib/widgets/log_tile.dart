@@ -106,18 +106,31 @@ class _LogTileState extends State<LogTile> {
               const Divider(height: 16),
               ...widget.log["inputs"].entries.map<Widget>((e) {
                 return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  padding: const EdgeInsets.symmetric(vertical: 3),
                   child: Row(
                     children: [
-                      Text("${_labelize(e.key)}: ",
+                      Expanded(
+                        flex: 2,
+                        child: Text(
+                          "${_labelize(e.key)}:",
                           style: const TextStyle(
-                              fontWeight: FontWeight.w600, color: Colors.black87)),
-                      Text("${e.value}", style: const TextStyle(color: Colors.black87)),
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 3,
+                        child: Text(
+                          "${e.value}",
+                          style: const TextStyle(color: Colors.black87),
+                        ),
+                      ),
                     ],
                   ),
                 );
               }).toList(),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [

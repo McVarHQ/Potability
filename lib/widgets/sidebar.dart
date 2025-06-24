@@ -8,13 +8,13 @@ import 'package:potability/screens/db_logs_screen.dart';
 const aqua = Color(0xFF00BCD4);
 
 class Sidebar extends StatefulWidget {
-  final List<Map<String, dynamic>> logs;
+  final List<Map<String, dynamic>> postgresLogs;
   final bool backendConnected;
   final bool awsConnected;
 
   const Sidebar({
     super.key,
-    required this.logs,
+    required this.postgresLogs,
     required this.backendConnected,
     required this.awsConnected,
   });
@@ -39,8 +39,9 @@ class _SidebarState extends State<Sidebar> {
       final decoded = json.decode(raw);
       if (decoded is Map<String, dynamic>) {
         setState(() {
-          menuExtras = decoded.map((key, value) =>
-              MapEntry(key, List<String>.from(value as List)));
+          menuExtras = decoded.map(
+            (key, value) => MapEntry(key, List<String>.from(value as List)),
+          );
         });
       }
     } catch (e) {
@@ -49,15 +50,21 @@ class _SidebarState extends State<Sidebar> {
   }
 
   Future<void> _downloadLogs(BuildContext context) async {
-    final jsonStr = const JsonEncoder.withIndent('  ').convert(widget.logs);
-    final directory = Directory.systemTemp;
-    final file = File('${directory.path}/potability_logs.json');
-    await file.writeAsString(jsonStr);
-    setState(() => logFile = file);
+    try {
+      final jsonStr = const JsonEncoder.withIndent('  ').convert(widget.postgresLogs);
+      final directory = Directory.systemTemp;
+      final file = File('${directory.path}/potability_logs.json');
+      await file.writeAsString(jsonStr);
+      setState(() => logFile = file);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('📁 Logs saved to ${file.path}')),
-    );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('📁 Logs saved to temporary file:\n${file.path}')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('❌ Failed to save logs: $e')),
+      );
+    }
   }
 
   Future<void> _shareLogs(BuildContext context) async {
@@ -121,14 +128,15 @@ class _SidebarState extends State<Sidebar> {
               const Text(
                 "Connections",
                 style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white),
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
               ),
               const SizedBox(height: 12),
               _buildBullet("AWS", widget.awsConnected),
               const SizedBox(height: 6),
-              _buildBullet("Backend", widget.backendConnected),
+              _buildBullet("Predictor", widget.backendConnected),
               const SizedBox(height: 24),
               if (menuExtras.isNotEmpty)
                 ...menuExtras.entries.map((entry) => Column(
@@ -137,16 +145,19 @@ class _SidebarState extends State<Sidebar> {
                         Text(
                           entry.key,
                           style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white),
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
                         ),
                         const SizedBox(height: 8),
                         ...entry.value.map(
                           (line) => Padding(
                             padding: const EdgeInsets.only(left: 8, bottom: 4),
-                            child: Text("• $line",
-                                style: const TextStyle(color: Colors.white70)),
+                            child: Text(
+                              "• $line",
+                              style: const TextStyle(color: Colors.white70),
+                            ),
                           ),
                         ),
                         const SizedBox(height: 16),

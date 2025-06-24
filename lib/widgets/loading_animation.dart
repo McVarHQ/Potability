@@ -31,10 +31,11 @@ class _LoadingAnimationState extends State<LoadingAnimation>
         'assets/water.json',
         controller: _controller,
         width: 180,
+        repeat: false, // <- Ensures it plays once
         onLoaded: (composition) {
           _controller
             ..duration = composition.duration
-            ..forward(); // Plays once, no repeat
+            ..forward(); // Play once
         },
       ),
     );
