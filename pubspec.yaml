@@ -16,6 +16,7 @@ dependencies:
   share_plus: ^11.0.0
   flutter_svg: ^2.0.10
   file_picker: ^10.2.0
+  intl: ^0.20.2
 
 dependency_overrides:
   material_color_utilities: ^0.13.0
@@ -32,6 +33,7 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
   assets:
     - assets/ph.png
     - assets/temperature.png
@@ -44,6 +46,17 @@ flutter:
     - assets/error.png
     - assets/filter.png
     - assets/leaf.png
+    - assets/ph.svg
+    - assets/temperature.svg
+    - assets/turbidity.svg
+    - assets/tds.svg
+    - assets/do.svg
+    - assets/block.svg
+    - assets/clear.svg
+    - assets/danger.svg
+    - assets/error.svg
+    - assets/filter.svg
+    - assets/leaf.svg
     - assets/water.json
     - assets/water_full.json
     - assets/menu.json

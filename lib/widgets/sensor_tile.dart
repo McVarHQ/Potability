@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 const aqua = Color(0xFF00BCD4);
 
@@ -19,7 +20,7 @@ class SensorTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tileWidth = wide ? double.infinity : 110.0;
-    final tileHeight = wide ? 70.0 : 120.0;
+    final tileHeight = wide ? 70.0 : 140.0; // increased height to avoid overflow
 
     return Container(
       width: tileWidth,
@@ -28,7 +29,7 @@ class SensorTile extends StatelessWidget {
       margin: wide ? const EdgeInsets.only(bottom: 8.0) : EdgeInsets.zero,
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Colors.white, Color(0xFFE0F7FA)], // white → light aqua
+          colors: [Colors.white, Color(0xFFE0F7FA)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -51,11 +52,17 @@ class SensorTile extends StatelessWidget {
                   backgroundColor: Colors.white,
                   child: Padding(
                     padding: const EdgeInsets.all(6.0),
-                    child: Image.asset(iconPath, width: 24, height: 24),
+                    child: SvgPicture.asset(
+                      iconPath,
+                      width: 24,
+                      height: 24,
+                      color: aqua,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
+                  flex: 2,
                   child: Text(
                     label,
                     style: TextStyle(
@@ -65,12 +72,21 @@ class SensorTile extends StatelessWidget {
                     ),
                   ),
                 ),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+                Expanded(
+                  flex: 2,
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        value,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -79,12 +95,12 @@ class SensorTile extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
-                  height: 38,
-                  width: 38,
-                  decoration: BoxDecoration(
+                  height: 40,
+                  width: 40,
+                  decoration: const BoxDecoration(
                     shape: BoxShape.circle,
                     color: Colors.white,
-                    boxShadow: const [
+                    boxShadow: [
                       BoxShadow(
                         color: Colors.black26,
                         blurRadius: 3,
@@ -94,10 +110,13 @@ class SensorTile extends StatelessWidget {
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(6.0),
-                    child: Image.asset(iconPath),
+                    child: SvgPicture.asset(
+                      iconPath,
+                      color: aqua,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 Text(
                   label,
                   style: TextStyle(
@@ -107,12 +126,18 @@ class SensorTile extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+                SizedBox(
+                  height: 22,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      value,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
                   ),
                 ),
               ],

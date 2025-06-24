@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
-
 import 'package:potability/screens/db_logs_screen.dart';
 
 const aqua = Color(0xFF00BCD4);
@@ -85,60 +84,76 @@ class _SidebarState extends State<Sidebar> {
   @override
   Widget build(BuildContext context) {
     return Drawer(
+      backgroundColor: aqua,
       child: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            const Text(
-              "Logs",
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            ListTile(
-              leading: const Icon(Icons.list),
-              title: const Text("View Logs"),
-              onTap: () => _viewLogs(context),
-            ),
-            ListTile(
-              leading: const Icon(Icons.download),
-              title: const Text("Download Logs"),
-              onTap: () => _downloadLogs(context),
-            ),
-            ListTile(
-              leading: const Icon(Icons.share),
-              title: const Text("Share Logs"),
-              onTap: () => _shareLogs(context),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              "Connections",
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            _buildBullet("AWS", widget.awsConnected),
-            const SizedBox(height: 6),
-            _buildBullet("Backend", widget.backendConnected),
-            const SizedBox(height: 24),
-            if (menuExtras.isNotEmpty)
-              ...menuExtras.entries.map((entry) => Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        entry.key,
-                        style: const TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 8),
-                      ...entry.value.map(
-                        (line) => Padding(
-                          padding: const EdgeInsets.only(left: 8, bottom: 4),
-                          child: Text("• $line"),
+        child: Theme(
+          data: Theme.of(context).copyWith(
+            iconTheme: const IconThemeData(color: Colors.white),
+          ),
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              const Text(
+                "Logs",
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 12),
+              ListTile(
+                leading: const Icon(Icons.list),
+                title: const Text("View Logs", style: TextStyle(color: Colors.white)),
+                onTap: () => _viewLogs(context),
+              ),
+              ListTile(
+                leading: const Icon(Icons.download),
+                title: const Text("Download Logs", style: TextStyle(color: Colors.white)),
+                onTap: () => _downloadLogs(context),
+              ),
+              ListTile(
+                leading: const Icon(Icons.share),
+                title: const Text("Share Logs", style: TextStyle(color: Colors.white)),
+                onTap: () => _shareLogs(context),
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                "Connections",
+                style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white),
+              ),
+              const SizedBox(height: 12),
+              _buildBullet("AWS", widget.awsConnected),
+              const SizedBox(height: 6),
+              _buildBullet("Backend", widget.backendConnected),
+              const SizedBox(height: 24),
+              if (menuExtras.isNotEmpty)
+                ...menuExtras.entries.map((entry) => Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          entry.key,
+                          style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white),
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-                  )),
-          ],
+                        const SizedBox(height: 8),
+                        ...entry.value.map(
+                          (line) => Padding(
+                            padding: const EdgeInsets.only(left: 8, bottom: 4),
+                            child: Text("• $line",
+                                style: const TextStyle(color: Colors.white70)),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                    )),
+            ],
+          ),
         ),
       ),
     );
@@ -147,14 +162,14 @@ class _SidebarState extends State<Sidebar> {
   Widget _buildBullet(String label, bool connected) {
     return Row(
       children: [
-        Icon(Icons.circle,
-            size: 10, color: connected ? Colors.green : Colors.red),
+        Icon(Icons.circle, size: 10, color: connected ? Colors.green : Colors.red),
         const SizedBox(width: 8),
         Text(
           label,
           style: TextStyle(
             fontSize: 15,
-            color: connected ? Colors.green.shade700 : Colors.red.shade700,
+            color: connected ? Colors.green.shade100 : Colors.red.shade100,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ],

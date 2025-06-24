@@ -30,11 +30,11 @@ class _LoadingAnimationState extends State<LoadingAnimation>
       child: Lottie.asset(
         'assets/water.json',
         controller: _controller,
-        width: 180, // slightly larger to match result tile region
+        width: 180,
         onLoaded: (composition) {
           _controller
             ..duration = composition.duration
-            ..forward();
+            ..forward(); // Plays once, no repeat
         },
       ),
     );

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:potability/screens/home_screen.dart';
 
+const Color startColor = Color(0xFF486097);
+
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -20,13 +22,16 @@ class _SplashScreenState extends State<SplashScreen>
     super.initState();
 
     _controller = AnimationController(vsync: this);
-
     _controller.addListener(() {
-      if (_controller.value >= 0.5 && !showStart && !hasStarted) {
+      if (_controller.value >= 0.48 && !showStart && !hasStarted) {
         _controller.stop();
-        setState(() {
-          showStart = true;
-        });
+        setState(() => showStart = true);
+        _controller.repeat(
+          min: 0.45,
+          max: 0.48,
+          reverse: true,
+          period: const Duration(seconds: 2),
+        );
       }
     });
   }
@@ -43,13 +48,14 @@ class _SplashScreenState extends State<SplashScreen>
       showStart = false;
     });
 
+    _controller.stop();
     _controller.forward(from: _controller.value);
 
     _controller.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
         );
       }
     });
@@ -63,7 +69,6 @@ class _SplashScreenState extends State<SplashScreen>
       backgroundColor: Colors.white,
       body: Stack(
         children: [
-          // Lottie animation stretched to fill the screen
           SizedBox(
             height: screenSize.height,
             width: screenSize.width,
@@ -72,32 +77,36 @@ class _SplashScreenState extends State<SplashScreen>
               controller: _controller,
               fit: BoxFit.cover,
               onLoaded: (composition) {
-                _controller
-                  ..duration = composition.duration
-                  ..forward();
+                _controller.duration = composition.duration;
+                _controller.forward();
               },
             ),
           ),
-
-          // START button overlay
           if (showStart)
             Center(
-              child: ElevatedButton(
-                onPressed: _startApp,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF486097),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 40, vertical: 18),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+              child: GestureDetector(
+                onTap: _startApp,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: startColor, width: 2),
+                    borderRadius: BorderRadius.circular(12),
+                    color: Colors.white.withOpacity(0.8),
                   ),
-                  textStyle: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'SairaExpanded', // 👈 Use your custom font
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      "START",
+                      style: TextStyle(
+                        fontSize: screenSize.width * 0.12, // ~90% width
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'SairaExpanded',
+                        color: startColor,
+                        letterSpacing: 4,
+                      ),
+                    ),
                   ),
                 ),
-                child: const Text("START"),
               ),
             ),
         ],
