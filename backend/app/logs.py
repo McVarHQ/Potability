@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
-from app.db import get_db_pool
+from app.db import get_all_logs
 import json
 
 router = APIRouter()
@@ -8,12 +8,10 @@ router = APIRouter()
 @router.get("/logs")
 async def get_logs():
     try:
-        pool = await get_db_pool()
-        async with pool.acquire() as conn:
-            rows = await conn.fetch("SELECT * FROM logs ORDER BY timestamp DESC LIMIT 50")
+        raw_logs = await get_all_logs()
 
         logs = []
-        for row in rows:
+        for row in raw_logs:
             try:
                 inputs = json.loads(row["inputs"]) if isinstance(row["inputs"], str) else row["inputs"]
             except json.JSONDecodeError:
