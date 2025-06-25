@@ -4,7 +4,7 @@ joblib
 pandas
 python-dotenv
 psycopg2-binary
-xgboost
+xgboost==2.1.4
 asyncpg
-scikit-learn
+scikit-learn==1.6.1
 python-dotenv
