@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:potability/screens/db_logs_screen.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:file_picker/file_picker.dart';
 
 const aqua = Color(0xFF00BCD4);
 
@@ -25,7 +27,6 @@ class Sidebar extends StatefulWidget {
 
 class _SidebarState extends State<Sidebar> {
   Map<String, List<String>> menuExtras = {};
-  File? logFile;
 
   @override
   void initState() {
@@ -52,14 +53,20 @@ class _SidebarState extends State<Sidebar> {
   Future<void> _downloadLogs(BuildContext context) async {
     try {
       final jsonStr = const JsonEncoder.withIndent('  ').convert(widget.postgresLogs);
-      final directory = Directory.systemTemp;
-      final file = File('${directory.path}/potability_logs.json');
-      await file.writeAsString(jsonStr);
-      setState(() => logFile = file);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('📁 Logs saved to temporary file:\n${file.path}')),
+      final output = await FilePicker.platform.saveFile(
+        dialogTitle: 'Save Logs As',
+        fileName: 'potability_logs.json',
+        type: FileType.custom,
+        allowedExtensions: ['json'],
       );
+
+      if (output != null) {
+        final file = File(output);
+        await file.writeAsString(jsonStr);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('📁 Logs saved:\n${file.path}')),
+        );
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('❌ Failed to save logs: $e')),
@@ -68,20 +75,25 @@ class _SidebarState extends State<Sidebar> {
   }
 
   Future<void> _shareLogs(BuildContext context) async {
-    if (logFile != null && await logFile!.exists()) {
+    try {
+      final jsonStr = const JsonEncoder.withIndent('  ').convert(widget.postgresLogs);
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File('${tempDir.path}/potability_logs.json');
+      await tempFile.writeAsString(jsonStr);
+
       await Share.shareXFiles(
-        [XFile(logFile!.path)],
+        [XFile(tempFile.path)],
         text: '📊 Water Potability Logs',
       );
-    } else {
+    } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('❌ Please download logs first')),
+        SnackBar(content: Text('❌ Failed to share logs: $e')),
       );
     }
   }
 
   void _viewLogs(BuildContext context) {
-    Navigator.pop(context); // Close drawer
+    Navigator.pop(context);
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const DbLogsScreen()),
@@ -94,20 +106,11 @@ class _SidebarState extends State<Sidebar> {
       backgroundColor: aqua,
       child: SafeArea(
         child: Theme(
-          data: Theme.of(context).copyWith(
-            iconTheme: const IconThemeData(color: Colors.white),
-          ),
+          data: Theme.of(context).copyWith(iconTheme: const IconThemeData(color: Colors.white)),
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              const Text(
-                "Logs",
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
+              const Text("Logs", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
               const SizedBox(height: 12),
               ListTile(
                 leading: const Icon(Icons.list),
@@ -125,14 +128,7 @@ class _SidebarState extends State<Sidebar> {
                 onTap: () => _shareLogs(context),
               ),
               const SizedBox(height: 24),
-              const Text(
-                "Connections",
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
+              const Text("Connections", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
               const SizedBox(height: 12),
               _buildBullet("AWS", widget.awsConnected),
               const SizedBox(height: 6),
@@ -142,24 +138,12 @@ class _SidebarState extends State<Sidebar> {
                 ...menuExtras.entries.map((entry) => Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          entry.key,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
+                        Text(entry.key, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
                         const SizedBox(height: 8),
-                        ...entry.value.map(
-                          (line) => Padding(
-                            padding: const EdgeInsets.only(left: 8, bottom: 4),
-                            child: Text(
-                              "• $line",
-                              style: const TextStyle(color: Colors.white70),
-                            ),
-                          ),
-                        ),
+                        ...entry.value.map((line) => Padding(
+                              padding: const EdgeInsets.only(left: 8, bottom: 4),
+                              child: Text("• $line", style: const TextStyle(color: Colors.white70)),
+                            )),
                         const SizedBox(height: 16),
                       ],
                     )),

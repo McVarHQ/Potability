@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
+import 'dart:convert';
+
 
 const aqua = Color(0xFF00BCD4);
 
@@ -55,7 +57,10 @@ class _LogTileState extends State<LogTile> {
     final parsed = DateTime.tryParse(timestamp ?? "")?.toLocal();
     final timeStr = parsed != null
         ? DateFormat.yMMMd().add_jm().format(parsed)
-        : timestamp.toString();
+        : (timestamp?.toString() ?? "Unknown time");
+
+    final inputs = widget.log["inputs"];
+    final isInputValid = inputs is Map<String, dynamic>;
 
     return GestureDetector(
       onTap: widget.onTap,
@@ -102,9 +107,9 @@ class _LogTileState extends State<LogTile> {
               "Time: $timeStr",
               style: const TextStyle(fontSize: 13, color: Colors.black54),
             ),
-            if (widget.expanded) ...[
+            if (widget.expanded && isInputValid) ...[
               const Divider(height: 16),
-              ...widget.log["inputs"].entries.map<Widget>((e) {
+              ...inputs.entries.map<Widget>((e) {
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 3),
                   child: Row(
@@ -129,23 +134,25 @@ class _LogTileState extends State<LogTile> {
                     ],
                   ),
                 );
-              }).toList(),
+              }),
               const SizedBox(height: 12),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   IconButton(
-                    tooltip: 'Copy',
+                    tooltip: 'Copy log details',
                     icon: const Icon(Icons.copy, size: 20, color: aqua),
                     onPressed: () {
-                      Clipboard.setData(ClipboardData(text: widget.log.toString()));
+                      const JsonEncoder encoder = JsonEncoder.withIndent('  ');
+                      final String prettyJson = encoder.convert(widget.log);
+                      Clipboard.setData(ClipboardData(text: prettyJson));
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('📋 Copied to clipboard')),
                       );
                     },
                   ),
                   IconButton(
-                    tooltip: 'Delete',
+                    tooltip: 'Delete this log',
                     icon: const Icon(Icons.delete_outline, size: 20, color: aqua),
                     onPressed: widget.onDelete,
                   ),
@@ -158,7 +165,6 @@ class _LogTileState extends State<LogTile> {
     );
   }
 
-  /// Beautify labels for UI (e.g. totaldissolvedsolids → TDS)
   String _labelize(String key) {
     switch (key.toLowerCase()) {
       case 'ph':

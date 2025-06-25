@@ -2,8 +2,10 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:potability/widgets/log_tile.dart';
+import 'package:intl/intl.dart';
 
 const String logsApiUrl = 'https://potability-production.up.railway.app/logs';
+const aqua = Color(0xFF00BCD4);
 
 class DbLogsScreen extends StatefulWidget {
   const DbLogsScreen({super.key});
@@ -38,7 +40,7 @@ class _DbLogsScreenState extends State<DbLogsScreen> {
       }
     } catch (e) {
       setState(() {
-        error = 'Error loading logs.';
+        error = '❌ Error loading logs.';
         dbLogs = [];
         loading = false;
       });
@@ -50,12 +52,13 @@ class _DbLogsScreenState extends State<DbLogsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Database Logs"),
-        backgroundColor: const Color(0xFF00BCD4),
+        backgroundColor: aqua,
+        elevation: 0,
       ),
       body: loading
           ? const Center(child: CircularProgressIndicator())
           : error != null
-              ? Center(child: Text(error!))
+              ? Center(child: Text(error!, style: const TextStyle(color: Colors.red)))
               : dbLogs.isEmpty
                   ? const Center(child: Text("No logs available."))
                   : ListView.builder(
@@ -63,8 +66,12 @@ class _DbLogsScreenState extends State<DbLogsScreen> {
                       itemCount: dbLogs.length,
                       itemBuilder: (context, index) {
                         final log = dbLogs[index];
-                        final localTime = DateTime.tryParse(log["timestamp"] ?? "")?.toLocal().toString() ?? "";
-                        log["timestamp"] = localTime;
+                        final rawTimestamp = log["timestamp"];
+                        final parsedTime = DateTime.tryParse(rawTimestamp ?? "");
+                        final formatted = parsedTime != null
+                            ? DateFormat.yMMMd().add_jm().format(parsedTime.toLocal())
+                            : rawTimestamp.toString();
+                        log["timestamp"] = formatted;
 
                         return LogTile(
                           log: log,
@@ -72,7 +79,12 @@ class _DbLogsScreenState extends State<DbLogsScreen> {
                           onTap: () => setState(() {
                             expandedIndex = expandedIndex == index ? null : index;
                           }),
-                          onDelete: () {},
+                          onDelete: () {
+                            // Deletion from DB not allowed here
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("Cannot delete logs from database view.")),
+                            );
+                          },
                         );
                       },
                     ),

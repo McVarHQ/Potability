@@ -16,6 +16,7 @@ dependencies:
   share_plus: ^11.0.0
   flutter_svg: ^2.0.10
   intl: ^0.20.2
+  file_picker: ^10.2.0
 
 dependency_overrides:
   material_color_utilities: ^0.13.0

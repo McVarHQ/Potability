@@ -8,6 +8,8 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:lottie/lottie.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:file_picker/file_picker.dart';
 
 import 'package:potability/widgets/log_tile.dart';
 import 'package:potability/widgets/sensor_tile.dart';
@@ -35,9 +37,9 @@ class _HomeScreenState extends State<HomeScreen> {
     'Dissolved Oxygen': '--',
   };
 
-  List<Map<String, dynamic>> logs = [];
-  List<Map<String, dynamic>> postgresLogs = []; // Add this to hold logs fetched at startup
+  final List<Map<String, dynamic>> logs = [];
   List<Map<String, dynamic>> filteredLogs = [];
+  List<Map<String, dynamic>> postgresLogs = [];
 
   bool predicting = false;
   MqttServerClient? client;
@@ -47,6 +49,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String? predictionResult;
   String? errorMessage;
+
+  List<Map<String, dynamic>> get sessionLogs => logs.where((log) {
+    final time = DateTime.tryParse(log["timestamp"] ?? "");
+    return time != null && time.isAfter(DateTime.now().subtract(const Duration(hours: 12)));
+  }).toList();
 
   @override
   void initState() {
@@ -61,8 +68,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (res.statusCode == 200) {
         final List<dynamic> jsonList = json.decode(res.body);
         setState(() {
-          logs = jsonList.cast<Map<String, dynamic>>();
-          filteredLogs = List.from(logs);
+          postgresLogs = jsonList.cast<Map<String, dynamic>>();
           backendConnected = true;
         });
       }
@@ -125,6 +131,7 @@ class _HomeScreenState extends State<HomeScreen> {
       debugPrint('❌ MQTT error: $e');
     }
   }
+
   Future<void> predict() async {
     setState(() {
       predicting = true;
@@ -148,144 +155,27 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (response.statusCode == 200) {
         final result = json.decode(response.body);
-        predictionResult = result["result"];
         logs.insert(0, result);
-        filteredLogs = List.from(logs);
+        filteredLogs = List.from(sessionLogs);
         setState(() => backendConnected = true);
       } else {
         throw Exception("Prediction failed");
       }
     } catch (e) {
-      predictionResult = "Error";
-      errorMessage = "Something went wrong.";
       final fallback = {
         "timestamp": DateTime.now().toIso8601String(),
         "inputs": {},
         "result": "Prediction error: $e"
       };
       logs.insert(0, fallback);
-      filteredLogs = List.from(logs);
-      setState(() => backendConnected = false);
+      filteredLogs = List.from(sessionLogs);
+      setState(() {
+        backendConnected = false;
+        errorMessage = "Something went wrong.";
+      });
     }
 
     setState(() => predicting = false);
-  }
-
-  Widget buildResultTile() {
-    if (predicting) {
-      return SizedBox(
-        width: 140,
-        height: 140,
-        child: Lottie.asset('assets/water.json'),
-      );
-    }
-
-    if (predictionResult == null) {
-      return const SizedBox(height: 140, width: 140);
-    }
-
-    String label = '';
-    String icon = '';
-    Color color;
-
-    switch (predictionResult) {
-      case "Potable":
-        icon = 'leaf.svg';
-        label = 'Potable';
-        color = Colors.green;
-        break;
-      case "Not Potable":
-        icon = 'block.svg';
-        label = 'Not Potable';
-        color = Colors.red;
-        break;
-      default:
-        icon = 'danger.svg';
-        label = 'Error';
-        color = Colors.orange;
-        break;
-    }
-
-    return Container(
-      width: MediaQuery.of(context).size.width * 0.3,
-      height: MediaQuery.of(context).size.width * 0.3,
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: color, width: 2),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SvgPicture.asset('assets/$icon', width: 48, color: color),
-            const SizedBox(height: 10),
-            Text(
-              label,
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color),
-            ),
-            if (label == "Error" && errorMessage != null)
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Text(
-                  errorMessage!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 12),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void showFilterDialog() {
-    showModalBottomSheet(
-      context: context,
-      builder: (_) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            leading: const Icon(Icons.all_inclusive),
-            title: const Text("Show All"),
-            onTap: () {
-              setState(() => filteredLogs = List.from(logs));
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.water_drop),
-            title: const Text("Only Potable"),
-            onTap: () {
-              setState(() => filteredLogs = logs
-                  .where((log) => log['result'] == 'Potable')
-                  .toList());
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.block),
-            title: const Text("Only Not Potable"),
-            onTap: () {
-              setState(() => filteredLogs = logs
-                  .where((log) => log['result'] == 'Not Potable')
-                  .toList());
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.warning),
-            title: const Text("Only Errors"),
-            onTap: () {
-              setState(() => filteredLogs = logs
-                  .where((log) => log['result'].toString().toLowerCase().contains("error"))
-                  .toList());
-              Navigator.pop(context);
-            },
-          ),
-        ],
-      ),
-    );
   }
   @override
   Widget build(BuildContext context) {
@@ -355,7 +245,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    if (logs.isNotEmpty) ...[
+                    if (sessionLogs.isNotEmpty) ...[
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -372,8 +262,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                     TextButton(
                                       onPressed: () {
                                         setState(() {
-                                          logs.clear();
-                                          filteredLogs.clear();
+                                          logs.removeWhere((log) => sessionLogs.contains(log));
+                                          filteredLogs = List.from(sessionLogs);
                                           expandedIndex = null;
                                         });
                                         Navigator.pop(context);
@@ -388,6 +278,14 @@ class _HomeScreenState extends State<HomeScreen> {
                           IconButton(
                             icon: SvgPicture.asset('assets/filter.svg', width: 24, color: aqua),
                             onPressed: showFilterDialog,
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.download, color: aqua),
+                            onPressed: downloadLogsToUserLocation,
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.share, color: aqua),
+                            onPressed: shareLogsFile,
                           ),
                         ],
                       ),
@@ -425,5 +323,89 @@ class _HomeScreenState extends State<HomeScreen> {
         },
       ),
     );
+  }
+
+  Widget buildResultTile() {
+    return Expanded(
+      child: Container(
+        height: 100,
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: predictionResult == null
+              ? Colors.grey[200]
+              : predictionResult == "Potable"
+                  ? Colors.green[100]
+                  : Colors.red[100],
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: predictionResult == null
+            ? Center(child: Lottie.asset('assets/water.json', repeat: true))
+            : Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    predictionResult!,
+                    style: TextStyle(
+                      color: predictionResult == "Potable" ? Colors.green : Colors.red,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  if (errorMessage != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(errorMessage!, style: const TextStyle(color: Colors.red)),
+                    )
+                ],
+              ),
+      ),
+    );
+  }
+
+  Future<void> downloadLogsToUserLocation() async {
+    try {
+      final directory = await getExternalStorageDirectory();
+      final path = directory?.path ?? '/storage/emulated/0/Download';
+      final file = File('$path/water_logs_${DateTime.now().millisecondsSinceEpoch}.json');
+
+      final data = json.encode(sessionLogs);
+      await file.writeAsString(data);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("✅ Logs saved to: ${file.path}")),
+      );
+    } catch (e) {
+      debugPrint("❌ Download error: $e");
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Failed to download logs")),
+      );
+    }
+  }
+
+  Future<void> shareLogsFile() async {
+    try {
+      final directory = await getTemporaryDirectory();
+      final path = '${directory.path}/session_logs.json';
+      final file = File(path);
+
+      await file.writeAsString(json.encode(sessionLogs));
+      await Share.shareXFiles([XFile(file.path)], text: 'Session Logs');
+
+      Future.delayed(const Duration(seconds: 5), () {
+        if (file.existsSync()) file.deleteSync();
+      });
+    } catch (e) {
+      debugPrint("❌ Share error: $e");
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Failed to share logs")),
+      );
+    }
+  }
+
+  void showFilterDialog() {
+    // Add any filter dialog logic here if needed.
   }
 }
