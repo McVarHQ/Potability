@@ -2,9 +2,9 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from datetime import datetime
 from app.model import predict
-from app.db import insert_log, get_all_logs, init_db
+from app.db import insert_log, init_db
 from pydantic import BaseModel
-import asyncio
+from app.logs import router as logs_router  # ✅ Import router from logs.py
 
 app = FastAPI()
 
@@ -34,7 +34,5 @@ async def predict_water(request: Request):
     except Exception as e:
         return JSONResponse(status_code=400, content={"error": str(e)})
 
-@app.get("/logs/download")
-async def download_logs():
-    logs = await get_all_logs()
-    return logs
+# ✅ Include new /logs route (modular)
+app.include_router(logs_router)
