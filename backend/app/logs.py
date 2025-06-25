@@ -18,7 +18,7 @@ async def get_logs():
                 inputs = {"error": "Invalid input format"}
 
             logs.append({
-                "timestamp": row["timestamp"].isoformat() if row["timestamp"] else None,
+                "timestamp": row["timestamp"],  # ✅ Already a string — no isoformat()
                 "inputs": inputs,
                 "result": row["result"]
             })
