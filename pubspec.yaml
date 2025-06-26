@@ -25,6 +25,7 @@ dependency_overrides:
   petitparser: ^7.0.0
   vector_math: ^2.2.0
   xml: ^6.6.0
+  characters: ^1.4.1
 
 dev_dependencies:
   flutter_test:
