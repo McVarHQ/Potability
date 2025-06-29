@@ -344,17 +344,53 @@ class _ExpandableTileState extends State<ExpandableTile> with SingleTickerProvid
   }
 
   Widget _buildShrunkenSensorContent() {
-    return Center(
-      child: Text(
-        widget.label,
-        style: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.bold,
-          color: Colors.black87,
-        ),
-        textAlign: TextAlign.center,
+    // Get abbreviation and show value too
+    final abbreviation = _getAbbreviation(widget.label);
+    
+    return Padding(
+      padding: const EdgeInsets.all(8),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              abbreviation,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(height: 4),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              widget.value,
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: Colors.black54,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
       ),
     );
+  }
+
+  String _getAbbreviation(String label) {
+    switch (label) {
+      case 'Dissolved Oxygen': return 'DO';
+      case 'Temperature': return 'Temp';
+      case 'Turbidity': return 'Turb';
+      case 'TDS': return 'TDS';
+      case 'pH': return 'pH';
+      default: return label.substring(0, 3);
+    }
   }
 
   Widget _buildNormalResultContent() {

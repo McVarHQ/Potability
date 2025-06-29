@@ -90,24 +90,10 @@ class _SplashScreenState extends State<SplashScreen>
             left: 0,
             right: 0,
             child: Center(
-              child: Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.9),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 20,
-                      spreadRadius: 5,
-                    ),
-                  ],
-                ),
-                child: Image.asset(
-                  'assets/uni_logo.png',
-                  height: 80,
-                  fit: BoxFit.contain,
-                ),
+              child: Image.asset(
+                'assets/uni_logo.png',
+                height: 80,
+                fit: BoxFit.contain,
               ),
             ),
           ),
@@ -117,28 +103,14 @@ class _SplashScreenState extends State<SplashScreen>
             Center(
               child: GestureDetector(
                 onTap: _startApp,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.9),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: startColor.withOpacity(0.3),
-                        blurRadius: 20,
-                        spreadRadius: 2,
-                      ),
-                    ],
-                  ),
-                  child: Text(
-                    "START",
-                    style: TextStyle(
-                      fontSize: screenSize.width * 0.08,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'SairaExpanded',
-                      color: startColor,
-                      letterSpacing: 4,
-                    ),
+                child: Text(
+                  "START",
+                  style: TextStyle(
+                    fontSize: screenSize.width * 0.08,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'SairaExpanded',
+                    color: startColor,
+                    letterSpacing: 4,
                   ),
                 ),
               ),
