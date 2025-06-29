@@ -12,7 +12,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:file_picker/file_picker.dart';
 
 import 'package:potability/widgets/log_tile.dart';
-import 'package:potability/widgets/sensor_tile.dart';
+import 'package:potability/widgets/expandable_tile.dart';
 import 'package:potability/widgets/sidebar.dart';
 
 const aqua = Color(0xFF00BCD4);
@@ -20,6 +20,13 @@ const String apiUrl = 'https://potability-production.up.railway.app/predict';
 const String logsApiUrl = 'https://potability-production.up.railway.app/logs';
 const String broker = 'a33cad5yg72pky-ats.iot.ap-southeast-2.amazonaws.com';
 const String topic = 'esp32/pub';
+
+class SensorData {
+  final double value;
+  final DateTime timestamp;
+  
+  SensorData({required this.value, required this.timestamp});
+}
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -31,12 +38,23 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   late AnimationController _backgroundController;
   
+  // Current sensor values
   final Map<String, dynamic> sensorData = {
     'pH': '--',
     'TDS': '--',
     'Turbidity': '--',
     'Temperature': '--',
     'Dissolved Oxygen': '--',
+  };
+
+  // Historical sensor data for graphs
+  final Map<String, List<SensorData>> sensorHistory = {
+    'pH': [],
+    'TDS': [],
+    'Turbidity': [],
+    'Temperature': [],
+    'Dissolved Oxygen': [],
+    'Result': [], // For prediction results (1 = Potable, 0 = Not Potable)
   };
 
   final List<Map<String, dynamic>> logs = [];
@@ -48,6 +66,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   bool awsConnected = false;
   bool backendConnected = false;
   int? expandedIndex;
+  String? expandedTileId;
 
   String? predictionResult;
   String? errorMessage;
@@ -95,6 +114,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     }
   }
 
+  void _addSensorDataPoint(String sensor, double value) {
+    setState(() {
+      final now = DateTime.now();
+      sensorHistory[sensor]?.add(SensorData(value: value, timestamp: now));
+      
+      // Keep only last 50 data points for performance
+      if (sensorHistory[sensor]!.length > 50) {
+        sensorHistory[sensor]!.removeAt(0);
+      }
+    });
+  }
+
   Future<void> connectToMQTT() async {
     client = MqttServerClient(broker, 'flutter_client_${DateTime.now().millisecondsSinceEpoch}');
     client!
@@ -140,6 +171,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             sensorData['Turbidity'] = parsed['turbidity'].toString();
             sensorData['Temperature'] = parsed['temperature'].toString();
             sensorData['Dissolved Oxygen'] = parsed['dissolvedoxygen'].toString();
+            
+            // Add to history for graphs
+            _addSensorDataPoint('pH', parsed['ph']?.toDouble() ?? 0.0);
+            _addSensorDataPoint('TDS', parsed['totaldissolvedsolids']?.toDouble() ?? 0.0);
+            _addSensorDataPoint('Turbidity', parsed['turbidity']?.toDouble() ?? 0.0);
+            _addSensorDataPoint('Temperature', parsed['temperature']?.toDouble() ?? 0.0);
+            _addSensorDataPoint('Dissolved Oxygen', parsed['dissolvedoxygen']?.toDouble() ?? 0.0);
           });
         } catch (e) {
           debugPrint("⚠️ MQTT parse error: $e");
@@ -178,6 +216,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         setState(() {
           backendConnected = true;
           predictionResult = result["result"]?.toString();
+          
+          // Add result to history (1 for Potable, 0 for Not Potable)
+          final resultValue = predictionResult == "Potable" ? 1.0 : 0.0;
+          _addSensorDataPoint('Result', resultValue);
         });
       } else {
         throw Exception("Prediction failed");
@@ -194,20 +236,36 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         backendConnected = false;
         predictionResult = "Prediction error: $e";
         errorMessage = "Something went wrong.";
+        
+        // Add error result to history
+        _addSensorDataPoint('Result', -0.1); // Special value for errors
       });
     }
 
     setState(() => predicting = false);
   }
 
+  void _toggleTileExpansion(String tileId) {
+    setState(() {
+      if (expandedTileId == tileId) {
+        expandedTileId = null; // Collapse if already expanded
+      } else {
+        expandedTileId = tileId; // Expand new tile
+      }
+    });
+  }
+
+  List<double> _getDataPoints(String sensor) {
+    return sensorHistory[sensor]?.map((data) => data.value).toList() ?? [];
+  }
+
+  List<DateTime> _getTimestamps(String sensor) {
+    return sensorHistory[sensor]?.map((data) => data.timestamp).toList() ?? [];
+  }
+
   @override
   Widget build(BuildContext context) {
-    final tiles = [
-      SensorTile(label: "pH", value: sensorData["pH"].toString(), iconPath: 'assets/ph.svg'),
-      SensorTile(label: "TDS", value: sensorData["TDS"].toString(), iconPath: 'assets/tds.svg'),
-      SensorTile(label: "Turbidity", value: sensorData["Turbidity"].toString(), iconPath: 'assets/turbidity.svg'),
-      SensorTile(label: "Temperature", value: sensorData["Temperature"].toString(), iconPath: 'assets/temperature.svg'),
-    ];
+    final isAnyExpanded = expandedTileId != null;
 
     return Scaffold(
       key: _scaffoldKey,
@@ -249,24 +307,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             colors: [
                               aqua.withOpacity(0.1),
                               aqua.withOpacity(0.05),
-                              Colors.transparent,
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      bottom: -150 + (_backgroundController.value * -40),
-                      left: -100 + (_backgroundController.value * 20),
-                      child: Container(
-                        width: 250,
-                        height: 250,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: RadialGradient(
-                            colors: [
-                              const Color(0xFF0891B2).withOpacity(0.1),
-                              const Color(0xFF0891B2).withOpacity(0.05),
                               Colors.transparent,
                             ],
                           ),
@@ -335,54 +375,35 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     children: [
-                      // Dissolved Oxygen - Wide tile
-                      SensorTile(
-                        label: "Dissolved Oxygen",
-                        value: sensorData["Dissolved Oxygen"].toString(),
-                        iconPath: 'assets/do.svg',
-                        wide: true,
+                      // University Logo
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 10,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Image.asset(
+                          'assets/uni_logo_full.png',
+                          height: 80,
+                          fit: BoxFit.contain,
+                        ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
                       
-                      // Main sensor grid with prediction tile
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.center, // Center align all columns
-                        children: [
-                          // Left column
-                          Expanded(
-                            child: Column(
-                              children: [
-                                tiles[0], // pH
-                                const SizedBox(height: 12),
-                                tiles[1], // TDS
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          
-                          // Center prediction tile - properly centered
-                          Expanded(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                buildResultTile(),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          
-                          // Right column
-                          Expanded(
-                            child: Column(
-                              children: [
-                                tiles[2], // Turbidity
-                                const SizedBox(height: 12),
-                                tiles[3], // Temperature
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+                      // Expandable tiles grid
+                      if (isAnyExpanded) 
+                        _buildExpandedLayout()
+                      else 
+                        _buildNormalLayout(),
+                      
                       const SizedBox(height: 20),
                       
                       // Enhanced Predict Button
@@ -492,108 +513,306 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget buildResultTile() {
-    // If not predicting and no result, return completely empty space
-    if (!predicting && predictionResult == null) {
-      return const SizedBox(height: 180, width: double.infinity); // Just empty space, no tile
-    }
-    
-    return Container(
-      height: 180,
-      decoration: BoxDecoration(
-        gradient: predicting 
-            ? null  // No background during prediction
-            : LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: predictionResult == "Potable"
-                    ? [Colors.green.shade100, Colors.green.shade50]
-                    : predictionResult?.toLowerCase().contains("error") == true
-                        ? [Colors.orange.shade100, Colors.orange.shade50]
-                        : [Colors.red.shade100, Colors.red.shade50],
-              ),
-        borderRadius: BorderRadius.circular(16),
-        border: predicting 
-            ? null  // No border during prediction
-            : Border.all(
-                color: predictionResult == "Potable"
-                    ? Colors.green.shade200
-                    : predictionResult?.toLowerCase().contains("error") == true
-                        ? Colors.orange.shade200
-                        : Colors.red.shade200,
-                width: 1.5,
-              ),
-        boxShadow: predicting 
-            ? null  // No shadow during prediction
-            : [
-                BoxShadow(
-                  color: (predictionResult == "Potable" 
-                      ? Colors.green 
-                      : predictionResult?.toLowerCase().contains("error") == true
-                          ? Colors.orange
-                          : Colors.red).withOpacity(0.1),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-      ),
-      child: predicting
-          ? Center(child: LoadingAnimation(predicting: predicting))
-          : predictionResult == null
-              ? const SizedBox.shrink()  // Completely empty
-              : Center(  // Center the entire result content
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: predictionResult == "Potable" 
-                              ? Colors.green.shade500 
-                              : predictionResult?.toLowerCase().contains("error") == true
-                                  ? Colors.orange.shade500
-                                  : Colors.red.shade500,
-                          shape: BoxShape.circle,
-                        ),
-                        child: SvgPicture.asset(
-                          predictionResult == "Potable" 
-                              ? 'assets/leaf.svg' 
-                              : predictionResult?.toLowerCase().contains("error") == true
-                                  ? 'assets/danger.svg'
-                                  : 'assets/block.svg',
-                          width: 24,
-                          height: 24,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        predictionResult!.startsWith("Prediction error") ? "Error" : predictionResult!,
-                        style: TextStyle(
-                          color: predictionResult == "Potable" 
-                              ? Colors.green.shade700 
-                              : predictionResult?.toLowerCase().contains("error") == true
-                                  ? Colors.orange.shade700
-                                  : Colors.red.shade700,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      if (errorMessage != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 6),
-                          child: Text(
-                            errorMessage!, 
-                            style: const TextStyle(color: Colors.red, fontSize: 12),
-                            textAlign: TextAlign.center,
-                          ),
-                        )
-                    ],
+  Widget _buildNormalLayout() {
+    return Column(
+      children: [
+        // Dissolved Oxygen - Wide tile
+        ExpandableTile(
+          label: "Dissolved Oxygen",
+          value: sensorData["Dissolved Oxygen"].toString(),
+          iconPath: 'assets/do.svg',
+          isExpanded: false,
+          isShrunken: false,
+          onTap: () => _toggleTileExpansion('dissolved_oxygen'),
+          dataPoints: _getDataPoints('Dissolved Oxygen'),
+          timestamps: _getTimestamps('Dissolved Oxygen'),
+          lineColor: const Color(0xFF06B6D4),
+        ),
+        const SizedBox(height: 16),
+        
+        // Main sensor grid with prediction tile
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Left column
+            Expanded(
+              child: Column(
+                children: [
+                  ExpandableTile(
+                    label: "pH",
+                    value: sensorData["pH"].toString(),
+                    iconPath: 'assets/ph.svg',
+                    isExpanded: false,
+                    isShrunken: false,
+                    onTap: () => _toggleTileExpansion('ph'),
+                    dataPoints: _getDataPoints('pH'),
+                    timestamps: _getTimestamps('pH'),
+                    lineColor: const Color(0xFF3B82F6),
                   ),
-                ),
+                  const SizedBox(height: 12),
+                  ExpandableTile(
+                    label: "TDS",
+                    value: sensorData["TDS"].toString(),
+                    iconPath: 'assets/tds.svg',
+                    isExpanded: false,
+                    isShrunken: false,
+                    onTap: () => _toggleTileExpansion('tds'),
+                    dataPoints: _getDataPoints('TDS'),
+                    timestamps: _getTimestamps('TDS'),
+                    lineColor: const Color(0xFF8B5CF6),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            
+            // Center prediction tile
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ExpandableTile(
+                    label: "Result",
+                    value: predictionResult ?? "--",
+                    iconPath: 'assets/leaf.svg', // Default, will be overridden based on result
+                    isExpanded: false,
+                    isShrunken: false,
+                    onTap: () => _toggleTileExpansion('result'),
+                    dataPoints: _getDataPoints('Result'),
+                    timestamps: _getTimestamps('Result'),
+                    lineColor: Colors.green,
+                    isResultTile: true,
+                    predictionResult: predictionResult,
+                    predicting: predicting,
+                    predictionContent: predicting ? LoadingAnimation(predicting: predicting) : null,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            
+            // Right column
+            Expanded(
+              child: Column(
+                children: [
+                  ExpandableTile(
+                    label: "Turbidity",
+                    value: sensorData["Turbidity"].toString(),
+                    iconPath: 'assets/turbidity.svg',
+                    isExpanded: false,
+                    isShrunken: false,
+                    onTap: () => _toggleTileExpansion('turbidity'),
+                    dataPoints: _getDataPoints('Turbidity'),
+                    timestamps: _getTimestamps('Turbidity'),
+                    lineColor: const Color(0xFFF59E0B),
+                  ),
+                  const SizedBox(height: 12),
+                  ExpandableTile(
+                    label: "Temperature",
+                    value: sensorData["Temperature"].toString(),
+                    iconPath: 'assets/temperature.svg',
+                    isExpanded: false,
+                    isShrunken: false,
+                    onTap: () => _toggleTileExpansion('temperature'),
+                    dataPoints: _getDataPoints('Temperature'),
+                    timestamps: _getTimestamps('Temperature'),
+                    lineColor: const Color(0xFFEF4444),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
     );
+  }
+
+  Widget _buildExpandedLayout() {
+    return Column(
+      children: [
+        // Expanded tile
+        if (expandedTileId != null)
+          ExpandableTile(
+            label: _getTileLabel(expandedTileId!),
+            value: _getTileValue(expandedTileId!),
+            iconPath: _getTileIcon(expandedTileId!),
+            isExpanded: true,
+            isShrunken: false,
+            onTap: () => _toggleTileExpansion(expandedTileId!),
+            dataPoints: _getDataPoints(_getTileDataKey(expandedTileId!)),
+            timestamps: _getTimestamps(_getTileDataKey(expandedTileId!)),
+            lineColor: _getTileColor(expandedTileId!),
+            isResultTile: expandedTileId == 'result',
+            predictionResult: expandedTileId == 'result' ? predictionResult : null,
+            predicting: expandedTileId == 'result' ? predicting : false,
+            predictionContent: expandedTileId == 'result' && predicting ? LoadingAnimation(predicting: predicting) : null,
+          ),
+        
+        const SizedBox(height: 16),
+        
+        // Shrunken tiles grid
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            if (expandedTileId != 'dissolved_oxygen')
+              SizedBox(
+                width: 80,
+                child: ExpandableTile(
+                  label: "Dissolved Oxygen",
+                  value: sensorData["Dissolved Oxygen"].toString(),
+                  iconPath: 'assets/do.svg',
+                  isExpanded: false,
+                  isShrunken: true,
+                  onTap: () => _toggleTileExpansion('dissolved_oxygen'),
+                  dataPoints: _getDataPoints('Dissolved Oxygen'),
+                  timestamps: _getTimestamps('Dissolved Oxygen'),
+                  lineColor: const Color(0xFF06B6D4),
+                ),
+              ),
+            if (expandedTileId != 'ph')
+              SizedBox(
+                width: 80,
+                child: ExpandableTile(
+                  label: "pH",
+                  value: sensorData["pH"].toString(),
+                  iconPath: 'assets/ph.svg',
+                  isExpanded: false,
+                  isShrunken: true,
+                  onTap: () => _toggleTileExpansion('ph'),
+                  dataPoints: _getDataPoints('pH'),
+                  timestamps: _getTimestamps('pH'),
+                  lineColor: const Color(0xFF3B82F6),
+                ),
+              ),
+            if (expandedTileId != 'tds')
+              SizedBox(
+                width: 80,
+                child: ExpandableTile(
+                  label: "TDS",
+                  value: sensorData["TDS"].toString(),
+                  iconPath: 'assets/tds.svg',
+                  isExpanded: false,
+                  isShrunken: true,
+                  onTap: () => _toggleTileExpansion('tds'),
+                  dataPoints: _getDataPoints('TDS'),
+                  timestamps: _getTimestamps('TDS'),
+                  lineColor: const Color(0xFF8B5CF6),
+                ),
+              ),
+            if (expandedTileId != 'result')
+              SizedBox(
+                width: 80,
+                child: ExpandableTile(
+                  label: "Result",
+                  value: predictionResult ?? "--",
+                  iconPath: 'assets/leaf.svg',
+                  isExpanded: false,
+                  isShrunken: true,
+                  onTap: () => _toggleTileExpansion('result'),
+                  dataPoints: _getDataPoints('Result'),
+                  timestamps: _getTimestamps('Result'),
+                  lineColor: Colors.green,
+                  isResultTile: true,
+                  predictionResult: predictionResult,
+                  predicting: predicting,
+                  predictionContent: predicting ? LoadingAnimation(predicting: predicting) : null,
+                ),
+              ),
+            if (expandedTileId != 'turbidity')
+              SizedBox(
+                width: 80,
+                child: ExpandableTile(
+                  label: "Turbidity",
+                  value: sensorData["Turbidity"].toString(),
+                  iconPath: 'assets/turbidity.svg',
+                  isExpanded: false,
+                  isShrunken: true,
+                  onTap: () => _toggleTileExpansion('turbidity'),
+                  dataPoints: _getDataPoints('Turbidity'),
+                  timestamps: _getTimestamps('Turbidity'),
+                  lineColor: const Color(0xFFF59E0B),
+                ),
+              ),
+            if (expandedTileId != 'temperature')
+              SizedBox(
+                width: 80,
+                child: ExpandableTile(
+                  label: "Temperature",
+                  value: sensorData["Temperature"].toString(),
+                  iconPath: 'assets/temperature.svg',
+                  isExpanded: false,
+                  isShrunken: true,
+                  onTap: () => _toggleTileExpansion('temperature'),
+                  dataPoints: _getDataPoints('Temperature'),
+                  timestamps: _getTimestamps('Temperature'),
+                  lineColor: const Color(0xFFEF4444),
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  String _getTileLabel(String tileId) {
+    switch (tileId) {
+      case 'dissolved_oxygen': return 'Dissolved Oxygen';
+      case 'ph': return 'pH';
+      case 'tds': return 'TDS';
+      case 'result': return 'Result';
+      case 'turbidity': return 'Turbidity';
+      case 'temperature': return 'Temperature';
+      default: return '';
+    }
+  }
+
+  String _getTileValue(String tileId) {
+    switch (tileId) {
+      case 'dissolved_oxygen': return sensorData["Dissolved Oxygen"].toString();
+      case 'ph': return sensorData["pH"].toString();
+      case 'tds': return sensorData["TDS"].toString();
+      case 'result': return predictionResult ?? "--";
+      case 'turbidity': return sensorData["Turbidity"].toString();
+      case 'temperature': return sensorData["Temperature"].toString();
+      default: return '';
+    }
+  }
+
+  String _getTileIcon(String tileId) {
+    switch (tileId) {
+      case 'dissolved_oxygen': return 'assets/do.svg';
+      case 'ph': return 'assets/ph.svg';
+      case 'tds': return 'assets/tds.svg';
+      case 'result': return 'assets/leaf.svg';
+      case 'turbidity': return 'assets/turbidity.svg';
+      case 'temperature': return 'assets/temperature.svg';
+      default: return 'assets/do.svg';
+    }
+  }
+
+  String _getTileDataKey(String tileId) {
+    switch (tileId) {
+      case 'dissolved_oxygen': return 'Dissolved Oxygen';
+      case 'ph': return 'pH';
+      case 'tds': return 'TDS';
+      case 'result': return 'Result';
+      case 'turbidity': return 'Turbidity';
+      case 'temperature': return 'Temperature';
+      default: return '';
+    }
+  }
+
+  Color _getTileColor(String tileId) {
+    switch (tileId) {
+      case 'dissolved_oxygen': return const Color(0xFF06B6D4);
+      case 'ph': return const Color(0xFF3B82F6);
+      case 'tds': return const Color(0xFF8B5CF6);
+      case 'result': return Colors.green;
+      case 'turbidity': return const Color(0xFFF59E0B);
+      case 'temperature': return const Color(0xFFEF4444);
+      default: return aqua;
+    }
   }
 
   Future<void> downloadLogsToUserLocation() async {
@@ -604,7 +823,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         fileName: 'session_logs.json',
         type: FileType.custom,
         allowedExtensions: ['json'],
-        bytes: utf8.encode(data), // Provide bytes directly for Android 11+
+        bytes: utf8.encode(data),
       );
 
       if (path != null) {
