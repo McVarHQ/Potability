@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 
 class LoadingAnimation extends StatefulWidget {
-  const LoadingAnimation({super.key});
+  final bool predicting;
+
+  const LoadingAnimation({super.key, required this.predicting});
 
   @override
   State<LoadingAnimation> createState() => _LoadingAnimationState();
@@ -25,19 +27,31 @@ class _LoadingAnimationState extends State<LoadingAnimation>
   }
 
   @override
+  void didUpdateWidget(covariant LoadingAnimation oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.predicting && !_controller.isAnimating) {
+      _controller.repeat();
+    } else if (!widget.predicting && _controller.isAnimating) {
+      _controller.stop();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Lottie.asset(
-        'assets/water.json',
-        controller: _controller,
-        width: 180,
-        repeat: false, // <- Ensures it plays once
-        onLoaded: (composition) {
-          _controller
-            ..duration = composition.duration
-            ..forward(); // Play once
-        },
-      ),
-    );
+    return widget.predicting
+        ? Lottie.asset(
+            'assets/water.json',
+            controller: _controller,
+            width: 160,
+            height: 160,
+            repeat: true,
+            onLoaded: (composition) {
+              _controller.duration = composition.duration;
+              if (widget.predicting) {
+                _controller.repeat();
+              }
+            },
+          )
+        : const SizedBox.shrink();
   }
 }

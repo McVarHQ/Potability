@@ -1,11 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
 import 'package:flutter/services.dart' show rootBundle;
-import 'package:lottie/lottie.dart';
+import 'package:potability/widgets/loading_animation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:share_plus/share_plus.dart';
@@ -27,8 +28,10 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  late AnimationController _backgroundController;
+  
   final Map<String, dynamic> sensorData = {
     'pH': '--',
     'TDS': '--',
@@ -58,8 +61,21 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    
+    // Initialize background animation
+    _backgroundController = AnimationController(
+      duration: const Duration(seconds: 20),
+      vsync: this,
+    )..repeat();
+    
     connectToMQTT();
     preloadLogsFromDB();
+  }
+
+  @override
+  void dispose() {
+    _backgroundController.dispose();
+    super.dispose();
   }
 
   Future<void> preloadLogsFromDB() async {
@@ -157,7 +173,10 @@ class _HomeScreenState extends State<HomeScreen> {
         final result = json.decode(response.body);
         logs.insert(0, result);
         filteredLogs = List.from(sessionLogs);
-        setState(() => backendConnected = true);
+        setState(() {
+          backendConnected = true;
+          predictionResult = result["result"]?.toString();
+        });
       } else {
         throw Exception("Prediction failed");
       }
@@ -177,10 +196,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
     setState(() => predicting = false);
   }
+
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-
     final tiles = [
       SensorTile(label: "pH", value: sensorData["pH"].toString(), iconPath: 'assets/ph.svg'),
       SensorTile(label: "TDS", value: sensorData["TDS"].toString(), iconPath: 'assets/tds.svg'),
@@ -195,192 +213,426 @@ class _HomeScreenState extends State<HomeScreen> {
         awsConnected: awsConnected,
         backendConnected: backendConnected,
       ),
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text('Water Potability'),
-        backgroundColor: aqua,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.menu),
-          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-        ),
-      ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          return SingleChildScrollView(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Column(
+      body: Stack(
+        children: [
+          // Enhanced background
+          AnimatedBuilder(
+            animation: _backgroundController,
+            builder: (context, child) {
+              return Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      const Color(0xFFF8FAFC),
+                      const Color(0xFFE0F7FA),
+                      const Color(0xFFF0F9FF),
+                    ],
+                  ),
+                ),
+                child: Stack(
                   children: [
-                    SensorTile(
-                      label: "Dissolved Oxygen",
-                      value: sensorData["Dissolved Oxygen"].toString(),
-                      iconPath: 'assets/do.svg',
-                      wide: true,
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Expanded(child: Column(children: [tiles[0], const SizedBox(height: 8), tiles[1]])),
-                        const SizedBox(width: 12),
-                        buildResultTile(),
-                        const SizedBox(width: 12),
-                        Expanded(child: Column(children: [tiles[2], const SizedBox(height: 8), tiles[3]])),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: predicting ? null : predict,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: predicting ? Colors.grey : aqua,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    // Floating orbs
+                    Positioned(
+                      top: -100 + (_backgroundController.value * 50),
+                      right: -100 + (_backgroundController.value * 30),
+                      child: Container(
+                        width: 300,
+                        height: 300,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            colors: [
+                              aqua.withOpacity(0.1),
+                              aqua.withOpacity(0.05),
+                              Colors.transparent,
+                            ],
+                          ),
                         ),
-                        child: const Text("Predict", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    if (sessionLogs.isNotEmpty) ...[
+                    Positioned(
+                      bottom: -150 + (_backgroundController.value * -40),
+                      left: -100 + (_backgroundController.value * 20),
+                      child: Container(
+                        width: 250,
+                        height: 250,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            colors: [
+                              const Color(0xFF0891B2).withOpacity(0.1),
+                              const Color(0xFF0891B2).withOpacity(0.05),
+                              Colors.transparent,
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+          
+          // Main content
+          Column(
+            children: [
+              // Enhanced App Bar
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [aqua, const Color(0xFF0891B2)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: aqua.withOpacity(0.3),
+                      blurRadius: 20,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.menu, color: Colors.white),
+                          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.white.withOpacity(0.2),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                        const Expanded(
+                          child: Text(
+                            'Water Potability',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                        const SizedBox(width: 48),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              
+              // Content
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      // Dissolved Oxygen - Wide tile
+                      SensorTile(
+                        label: "Dissolved Oxygen",
+                        value: sensorData["Dissolved Oxygen"].toString(),
+                        iconPath: 'assets/do.svg',
+                        wide: true,
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Main sensor grid with prediction tile
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          IconButton(
-                            icon: SvgPicture.asset('assets/clear.svg', width: 24, color: aqua),
-                            onPressed: () {
-                              showDialog(
-                                context: context,
-                                builder: (_) => AlertDialog(
-                                  title: const Text("Clear Logs?"),
-                                  content: const Text("Are you sure you want to delete all logs?"),
-                                  actions: [
-                                    TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
-                                    TextButton(
-                                      onPressed: () {
-                                        setState(() {
-                                          logs.removeWhere((log) => sessionLogs.contains(log));
-                                          filteredLogs = List.from(sessionLogs);
-                                          expandedIndex = null;
-                                        });
-                                        Navigator.pop(context);
-                                      },
-                                      child: const Text("Clear"),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
+                          // Left column
+                          Expanded(
+                            child: Column(
+                              children: [
+                                tiles[0], // pH
+                                const SizedBox(height: 12),
+                                tiles[1], // TDS
+                              ],
+                            ),
                           ),
-                          IconButton(
-                            icon: SvgPicture.asset('assets/filter.svg', width: 24, color: aqua),
-                            onPressed: showFilterDialog,
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.download, color: aqua),
-                            onPressed: downloadLogsToUserLocation,
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.share, color: aqua),
-                            onPressed: shareLogsFile,
+                          const SizedBox(width: 12),
+                          
+                          // Center prediction tile
+                          Expanded(child: buildResultTile()),
+                          const SizedBox(width: 12),
+                          
+                          // Right column
+                          Expanded(
+                            child: Column(
+                              children: [
+                                tiles[2], // Turbidity
+                                const SizedBox(height: 12),
+                                tiles[3], // Temperature
+                              ],
+                            ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 6),
-                      ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        itemCount: filteredLogs.length,
-                        itemBuilder: (context, index) {
-                          final log = filteredLogs[index];
-                          final localTime = DateTime.tryParse(log["timestamp"] ?? "")?.toLocal().toString() ?? "";
-                          log["timestamp"] = localTime;
-                          return LogTile(
-                            log: log,
-                            expanded: expandedIndex == index,
-                            onTap: () => setState(() {
-                              expandedIndex = expandedIndex == index ? null : index;
-                            }),
-                            onDelete: () => setState(() {
-                              final toDelete = filteredLogs[index];
-                              logs.remove(toDelete);
-                              filteredLogs.removeAt(index);
-                              if (expandedIndex == index) expandedIndex = null;
-                            }),
-                          );
-                        },
+                      const SizedBox(height: 20),
+                      
+                      // Enhanced Predict Button
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: predicting ? null : predict,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: predicting ? Colors.grey : aqua,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            elevation: 8,
+                            shadowColor: aqua.withOpacity(0.4),
+                          ),
+                          child: Text(
+                            predicting ? "Predicting..." : "Predict",
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
                       ),
+                      const SizedBox(height: 20),
+                      
+                      // Session Logs
+                      if (sessionLogs.isNotEmpty) ...[
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              "Session Logs",
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            Row(
+                              children: [
+                                IconButton(
+                                  icon: SvgPicture.asset('assets/clear.svg', width: 24, color: aqua),
+                                  onPressed: () {
+                                    showDialog(
+                                      context: context,
+                                      builder: (_) => AlertDialog(
+                                        title: const Text("Clear Logs?"),
+                                        content: const Text("Are you sure you want to delete all logs?"),
+                                        actions: [
+                                          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+                                          TextButton(
+                                            onPressed: () {
+                                              setState(() {
+                                                logs.removeWhere((log) => sessionLogs.contains(log));
+                                                filteredLogs = List.from(sessionLogs);
+                                                expandedIndex = null;
+                                              });
+                                              Navigator.pop(context);
+                                            },
+                                            child: const Text("Clear"),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                ),
+                                IconButton(
+                                  icon: SvgPicture.asset('assets/filter.svg', width: 24, color: aqua),
+                                  onPressed: showFilterDialog,
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.download, color: aqua),
+                                  onPressed: downloadLogsToUserLocation,
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.share, color: aqua),
+                                  onPressed: shareLogsFile,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        
+                        ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: filteredLogs.length,
+                          itemBuilder: (context, index) {
+                            final log = filteredLogs[index];
+                            final localTime = DateTime.tryParse(log["timestamp"] ?? "")?.toLocal().toString() ?? "";
+                            log["timestamp"] = localTime;
+                            return LogTile(
+                              log: log,
+                              expanded: expandedIndex == index,
+                              onTap: () => setState(() {
+                                expandedIndex = expandedIndex == index ? null : index;
+                              }),
+                              onDelete: () => setState(() {
+                                final toDelete = filteredLogs[index];
+                                logs.remove(toDelete);
+                                filteredLogs.removeAt(index);
+                                if (expandedIndex == index) expandedIndex = null;
+                              }),
+                            );
+                          },
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
-            ),
-          );
-        },
+            ],
+          ),
+        ],
       ),
     );
   }
 
   Widget buildResultTile() {
-    return Expanded(
-      child: Container(
-        height: 100,
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: predictionResult == null
-              ? Colors.grey[200]
-              : predictionResult == "Potable"
-                  ? Colors.green[100]
-                  : Colors.red[100],
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: predictionResult == null
-            ? Center(child: Lottie.asset('assets/water.json', repeat: true))
-            : Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    predictionResult!,
-                    style: TextStyle(
-                      color: predictionResult == "Potable" ? Colors.green : Colors.red,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  if (errorMessage != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 6),
-                      child: Text(errorMessage!, style: const TextStyle(color: Colors.red)),
-                    )
-                ],
+    return Container(
+      height: 180,
+      decoration: BoxDecoration(
+        gradient: predicting 
+            ? null  // No background during prediction
+            : LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: predictionResult == null
+                    ? [Colors.white, Colors.grey.shade100]
+                    : predictionResult == "Potable"
+                        ? [Colors.green.shade100, Colors.green.shade50]
+                        : [Colors.red.shade100, Colors.red.shade50],
               ),
+        borderRadius: BorderRadius.circular(16),
+        border: predicting 
+            ? null  // No border during prediction
+            : Border.all(
+                color: predictionResult == null
+                    ? Colors.grey.shade200
+                    : predictionResult == "Potable"
+                        ? Colors.green.shade200
+                        : Colors.red.shade200,
+                width: 1.5,
+              ),
+        boxShadow: predicting 
+            ? null  // No shadow during prediction
+            : [
+                BoxShadow(
+                  color: (predictionResult == null ? Colors.grey : predictionResult == "Potable" ? Colors.green : Colors.red).withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
       ),
+      child: predicting
+          ? Center(child: LoadingAnimation(predicting: predicting))
+          : predictionResult == null
+              ? const SizedBox.shrink()  // Empty space instead of "Ready to predict"
+              : Center(  // Center the entire result content
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: predictionResult == "Potable" ? Colors.green.shade500 : Colors.red.shade500,
+                          shape: BoxShape.circle,
+                        ),
+                        child: SvgPicture.asset(
+                          predictionResult == "Potable" ? 'assets/leaf.svg' : 'assets/block.svg',
+                          width: 24,
+                          height: 24,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        predictionResult!,
+                        style: TextStyle(
+                          color: predictionResult == "Potable" ? Colors.green.shade700 : Colors.red.shade700,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      if (errorMessage != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(
+                            errorMessage!, 
+                            style: const TextStyle(color: Colors.red, fontSize: 12),
+                            textAlign: TextAlign.center,
+                          ),
+                        )
+                    ],
+                  ),
+                ),
     );
   }
 
   Future<void> downloadLogsToUserLocation() async {
     try {
-      final directory = await getExternalStorageDirectory();
-      final path = directory?.path ?? '/storage/emulated/0/Download';
-      final file = File('$path/water_logs_${DateTime.now().millisecondsSinceEpoch}.json');
-
       final data = json.encode(sessionLogs);
+      
+      // For Android 11+ compatibility, save to app's documents directory first
+      final directory = await getApplicationDocumentsDirectory();
+      final fileName = 'session_logs_${DateTime.now().millisecondsSinceEpoch}.json';
+      final file = File('${directory.path}/$fileName');
+      
+      // Write the file
       await file.writeAsString(data);
-
+      
+      // Share the file instead of using file picker (more reliable)
+      await Share.shareXFiles([XFile(file.path)], text: 'Session Logs');
+      
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("✅ Logs saved to: ${file.path}")),
+        SnackBar(content: Text("✅ Logs saved and shared: $fileName")),
       );
+      
+      // Clean up the temp file after a delay
+      Future.delayed(const Duration(seconds: 10), () {
+        if (file.existsSync()) file.deleteSync();
+      });
+      
     } catch (e) {
       debugPrint("❌ Download error: $e");
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Failed to download logs")),
-      );
+      
+      // Fallback: Try the old method
+      try {
+        final data = json.encode(sessionLogs);
+        final path = await FilePicker.platform.saveFile(
+          dialogTitle: 'Save Session Logs',
+          fileName: 'session_logs.json',
+          type: FileType.custom,
+          allowedExtensions: ['json'],
+          bytes: utf8.encode(data), // Provide bytes directly
+        );
+
+        if (path != null) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("✅ Logs saved to: $path")),
+          );
+        } else {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("❌ Save cancelled")),
+          );
+        }
+      } catch (fallbackError) {
+        debugPrint("❌ Fallback download error: $fallbackError");
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("❌ Failed to download logs. Try sharing instead.")),
+        );
+      }
     }
   }
 
