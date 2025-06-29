@@ -1,0 +1,170 @@
+<Project>
+  <Title>Water Potability Predictor App</Title>
+
+  <Overview>
+    <Purpose>
+      A Flutter mobile app that connects to an ESP32 via MQTT, receives live sensor data,
+      and uses a Railway-hosted REST API to classify water as potable or not.
+    </Purpose>
+    <Stack>
+      <Frontend>Flutter</Frontend>
+      <Backend>Python REST API hosted on Railway</Backend>
+      <MQTT>AWS IoT Core</MQTT>
+      <Database>PostgreSQL on Railway</Database>
+    </Stack>
+  </Overview>
+
+  <Features>
+    <MQTTIntegration>
+      <Broker>*.iot.ap-southeast-2.amazonaws.com</Broker>
+      <Port>8883</Port>
+      <Certs>CA.pem, cert.pem, private.key (in assets/aws/)</Certs>
+      <Topic>esp32/pub</Topic>
+      <Function>Subscribes to ESP32 sensor JSON data</Function>
+    </MQTTIntegration>
+
+    <SensorParameters>
+      <Parameter>pH</Parameter>
+      <Parameter>Total Dissolved Solids (TDS)</Parameter>
+      <Parameter>Turbidity</Parameter>
+      <Parameter>Temperature</Parameter>
+      <Parameter>Dissolved Oxygen</Parameter>
+    </SensorParameters>
+
+    <PredictionFlow>
+      <Trigger>“Predict” button</Trigger>
+      <Endpoint>POST /predict</Endpoint>
+      <Response>
+        {
+          "timestamp": "...",
+          "inputs": {...},
+          "result": "Potable" | "Not Potable" | "Prediction error: ..."
+        }
+      </Response>
+      <ResultDisplay>Live result shown in colored tile</ResultDisplay>
+      <Animation>Water animation plays during prediction</Animation>
+    </PredictionFlow>
+
+    <Logging>
+      <SessionLogs>
+        <Scope>Last 12 hours only</Scope>
+        <Storage>In-memory</Storage>
+        <Display>Below Predict button</Display>
+        <Actions>Clear, Filter, Download (File Picker), Share</Actions>
+      </SessionLogs>
+      <BackendLogs>
+        <Scope>All predictions from DB</Scope>
+        <Endpoint>GET /logs</Endpoint>
+        <Display>Only in “View Logs” and sidebar</Display>
+        <Actions>Download (File Picker), Share</Actions>
+      </BackendLogs>
+    </Logging>
+
+    <UIComponents>
+      <SensorTiles>Live readings in a responsive layout</SensorTiles>
+      <ResultTile>
+        <Color>Green = Potable, Red = Not Potable, Orange = Error</Color>
+        <Animation>Lottie water.json during prediction</Animation>
+      </ResultTile>
+      <LogTile>
+        <Expandable>Yes</Expandable>
+        <Actions>Copy, Delete</Actions>
+      </LogTile>
+      <Sidebar>
+        <Actions>View Logs, Download Logs, Share Logs</Actions>
+        <Extras>Custom bullets from assets/menu.json</Extras>
+        <Indicators>AWS and Predictor connection status</Indicators>
+      </Sidebar>
+    </UIComponents>
+  </Features>
+
+  <Packages>
+    <mqtt_client>Secure MQTT over TLS</mqtt_client>
+    <http>API communication</http>
+    <lottie>Animated loaders</lottie>
+    <flutter_svg>Icons</flutter_svg>
+    <intl>Date/time formatting</intl>
+    <share_plus>Cross-platform sharing (SharePlus.instance.share)</share_plus>
+    <file_picker>User-selected file save location</file_picker>
+    <path_provider>Get temp & external storage</path_provider>
+  </Packages>
+
+  <FileStructure>
+    <assets>
+      <aws>
+        CA.pem, cert.pem, private.key
+      </aws>
+      <fonts/>
+      <icons>
+        block.png, block.svg, clear.svg, danger.svg, do.svg, error.svg,
+        filter.svg, leaf.svg, ph.svg, tds.svg, temperature.svg, turbidity.svg
+      </icons>
+      <animations>
+        water.json, water.lottie, water_full.json, water_full.lottie
+      </animations>
+      <menu>menu.json</menu>
+    </assets>
+
+    <backend>
+      <app/>
+      <model/>
+      <files>.env, Procfile, requirements.txt</files>
+    </backend>
+
+    <lib>
+      <screens>
+        <file>db_logs_screen.dart</file>
+        <file>home_screen.dart</file>
+        <file>splash_screen.dart</file>
+      </screens>
+      <widgets>
+        <file>sensor_tile.dart</file>
+        <file>log_tile.dart</file>
+        <file>loading_animation.dart</file>
+        <file>sidebar.dart</file>
+      </widgets>
+      <main>main.dart</main>
+    </lib>
+  </FileStructure>
+
+  <BackendAPI>
+    <PredictEndpoint>
+      <Method>POST</Method>
+      <Route>/predict</Route>
+      <Input>
+        {
+        "imei": "123456789012",
+        "timestamp": 1750672621,
+        "pm25": 25.25,
+        "pm10": 10.1,
+        "ozone": 10.1,
+        "sulfurdioxide": 11.11,
+        "nitrogendioxide": 12.12,
+        "ph": 7.08,
+        "totaldissolvedsolids": 13839,
+        "turbidity": 5.66,
+        "dissolvedoxygen": 6.76,
+        "biochemical": 16.16,
+        "nitrate": 17.16,
+        "phosphate": 18.18,
+        "fecalcoliform": 19.19,
+        "temperature": 22.6,
+        "transmission_index": 310
+        }
+      </Input>
+      <Response>
+        {
+          "timestamp": "...",
+          "inputs": {...},
+          "result": "Potable"
+        }
+      </Response>
+    </PredictEndpoint>
+
+    <LogsEndpoint>
+      <Method>GET</Method>
+      <Route>/logs</Route>
+      <Returns>List of all historical predictions in PostgreSQL</Returns>
+    </LogsEndpoint>
+  </BackendAPI>
+</Project>

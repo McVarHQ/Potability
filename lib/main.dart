@@ -23,6 +23,14 @@ class WaterApp extends StatelessWidget {
         textTheme: const TextTheme(
           bodyMedium: TextStyle(color: Colors.black87),
         ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            elevation: 4,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
       ),
       home: const SplashScreen(),
     );
