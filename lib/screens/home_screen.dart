@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:mqtt_client/mqtt_client.dart';
@@ -67,6 +66,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       duration: const Duration(seconds: 20),
       vsync: this,
     )..repeat();
+    
+    // Initialize filteredLogs
+    filteredLogs = List.from(sessionLogs);
     
     connectToMQTT();
     preloadLogsFromDB();
@@ -190,6 +192,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       filteredLogs = List.from(sessionLogs);
       setState(() {
         backendConnected = false;
+        predictionResult = "Prediction error: $e";
         errorMessage = "Something went wrong.";
       });
     }
@@ -343,7 +346,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       
                       // Main sensor grid with prediction tile
                       Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.center, // Center align all columns
                         children: [
                           // Left column
                           Expanded(
@@ -357,8 +360,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           ),
                           const SizedBox(width: 12),
                           
-                          // Center prediction tile
-                          Expanded(child: buildResultTile()),
+                          // Center prediction tile - properly centered
+                          Expanded(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                buildResultTile(),
+                              ],
+                            ),
+                          ),
                           const SizedBox(width: 12),
                           
                           // Right column
@@ -401,62 +411,51 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       
                       // Session Logs
                       if (sessionLogs.isNotEmpty) ...[
+                        // Action icons only - evenly spaced
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
-                            const Text(
-                              "Session Logs",
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black87,
-                              ),
-                            ),
-                            Row(
-                              children: [
-                                IconButton(
-                                  icon: SvgPicture.asset('assets/clear.svg', width: 24, color: aqua),
-                                  onPressed: () {
-                                    showDialog(
-                                      context: context,
-                                      builder: (_) => AlertDialog(
-                                        title: const Text("Clear Logs?"),
-                                        content: const Text("Are you sure you want to delete all logs?"),
-                                        actions: [
-                                          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
-                                          TextButton(
-                                            onPressed: () {
-                                              setState(() {
-                                                logs.removeWhere((log) => sessionLogs.contains(log));
-                                                filteredLogs = List.from(sessionLogs);
-                                                expandedIndex = null;
-                                              });
-                                              Navigator.pop(context);
-                                            },
-                                            child: const Text("Clear"),
-                                          ),
-                                        ],
+                            IconButton(
+                              icon: SvgPicture.asset('assets/clear.svg', width: 24, color: aqua),
+                              onPressed: () {
+                                showDialog(
+                                  context: context,
+                                  builder: (_) => AlertDialog(
+                                    title: const Text("Clear Logs?"),
+                                    content: const Text("Are you sure you want to delete all logs?"),
+                                    actions: [
+                                      TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+                                      TextButton(
+                                        onPressed: () {
+                                          setState(() {
+                                            logs.removeWhere((log) => sessionLogs.contains(log));
+                                            filteredLogs = List.from(sessionLogs);
+                                            expandedIndex = null;
+                                          });
+                                          Navigator.pop(context);
+                                        },
+                                        child: const Text("Clear"),
                                       ),
-                                    );
-                                  },
-                                ),
-                                IconButton(
-                                  icon: SvgPicture.asset('assets/filter.svg', width: 24, color: aqua),
-                                  onPressed: showFilterDialog,
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.download, color: aqua),
-                                  onPressed: downloadLogsToUserLocation,
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.share, color: aqua),
-                                  onPressed: shareLogsFile,
-                                ),
-                              ],
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                            IconButton(
+                              icon: SvgPicture.asset('assets/filter.svg', width: 24, color: aqua),
+                              onPressed: showFilterDialog,
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.download, color: aqua),
+                              onPressed: downloadLogsToUserLocation,
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.share, color: aqua),
+                              onPressed: shareLogsFile,
                             ),
                           ],
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 16),
                         
                         ListView.builder(
                           shrinkWrap: true,
@@ -494,6 +493,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget buildResultTile() {
+    // If not predicting and no result, return completely empty space
+    if (!predicting && predictionResult == null) {
+      return const SizedBox(height: 180, width: double.infinity); // Just empty space, no tile
+    }
+    
     return Container(
       height: 180,
       decoration: BoxDecoration(
@@ -502,20 +506,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             : LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: predictionResult == null
-                    ? [Colors.white, Colors.grey.shade100]
-                    : predictionResult == "Potable"
-                        ? [Colors.green.shade100, Colors.green.shade50]
+                colors: predictionResult == "Potable"
+                    ? [Colors.green.shade100, Colors.green.shade50]
+                    : predictionResult?.toLowerCase().contains("error") == true
+                        ? [Colors.orange.shade100, Colors.orange.shade50]
                         : [Colors.red.shade100, Colors.red.shade50],
               ),
         borderRadius: BorderRadius.circular(16),
         border: predicting 
             ? null  // No border during prediction
             : Border.all(
-                color: predictionResult == null
-                    ? Colors.grey.shade200
-                    : predictionResult == "Potable"
-                        ? Colors.green.shade200
+                color: predictionResult == "Potable"
+                    ? Colors.green.shade200
+                    : predictionResult?.toLowerCase().contains("error") == true
+                        ? Colors.orange.shade200
                         : Colors.red.shade200,
                 width: 1.5,
               ),
@@ -523,7 +527,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ? null  // No shadow during prediction
             : [
                 BoxShadow(
-                  color: (predictionResult == null ? Colors.grey : predictionResult == "Potable" ? Colors.green : Colors.red).withOpacity(0.1),
+                  color: (predictionResult == "Potable" 
+                      ? Colors.green 
+                      : predictionResult?.toLowerCase().contains("error") == true
+                          ? Colors.orange
+                          : Colors.red).withOpacity(0.1),
                   blurRadius: 8,
                   offset: const Offset(0, 4),
                 ),
@@ -532,7 +540,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       child: predicting
           ? Center(child: LoadingAnimation(predicting: predicting))
           : predictionResult == null
-              ? const SizedBox.shrink()  // Empty space instead of "Ready to predict"
+              ? const SizedBox.shrink()  // Completely empty
               : Center(  // Center the entire result content
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -541,11 +549,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: predictionResult == "Potable" ? Colors.green.shade500 : Colors.red.shade500,
+                          color: predictionResult == "Potable" 
+                              ? Colors.green.shade500 
+                              : predictionResult?.toLowerCase().contains("error") == true
+                                  ? Colors.orange.shade500
+                                  : Colors.red.shade500,
                           shape: BoxShape.circle,
                         ),
                         child: SvgPicture.asset(
-                          predictionResult == "Potable" ? 'assets/leaf.svg' : 'assets/block.svg',
+                          predictionResult == "Potable" 
+                              ? 'assets/leaf.svg' 
+                              : predictionResult?.toLowerCase().contains("error") == true
+                                  ? 'assets/danger.svg'
+                                  : 'assets/block.svg',
                           width: 24,
                           height: 24,
                           color: Colors.white,
@@ -553,9 +569,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        predictionResult!,
+                        predictionResult!.startsWith("Prediction error") ? "Error" : predictionResult!,
                         style: TextStyle(
-                          color: predictionResult == "Potable" ? Colors.green.shade700 : Colors.red.shade700,
+                          color: predictionResult == "Potable" 
+                              ? Colors.green.shade700 
+                              : predictionResult?.toLowerCase().contains("error") == true
+                                  ? Colors.orange.shade700
+                                  : Colors.red.shade700,
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
@@ -579,60 +599,31 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Future<void> downloadLogsToUserLocation() async {
     try {
       final data = json.encode(sessionLogs);
-      
-      // For Android 11+ compatibility, save to app's documents directory first
-      final directory = await getApplicationDocumentsDirectory();
-      final fileName = 'session_logs_${DateTime.now().millisecondsSinceEpoch}.json';
-      final file = File('${directory.path}/$fileName');
-      
-      // Write the file
-      await file.writeAsString(data);
-      
-      // Share the file instead of using file picker (more reliable)
-      await Share.shareXFiles([XFile(file.path)], text: 'Session Logs');
-      
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("✅ Logs saved and shared: $fileName")),
+      final path = await FilePicker.platform.saveFile(
+        dialogTitle: 'Save Session Logs',
+        fileName: 'session_logs.json',
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+        bytes: utf8.encode(data), // Provide bytes directly for Android 11+
       );
-      
-      // Clean up the temp file after a delay
-      Future.delayed(const Duration(seconds: 10), () {
-        if (file.existsSync()) file.deleteSync();
-      });
-      
-    } catch (e) {
-      debugPrint("❌ Download error: $e");
-      
-      // Fallback: Try the old method
-      try {
-        final data = json.encode(sessionLogs);
-        final path = await FilePicker.platform.saveFile(
-          dialogTitle: 'Save Session Logs',
-          fileName: 'session_logs.json',
-          type: FileType.custom,
-          allowedExtensions: ['json'],
-          bytes: utf8.encode(data), // Provide bytes directly
-        );
 
-        if (path != null) {
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("✅ Logs saved to: $path")),
-          );
-        } else {
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("❌ Save cancelled")),
-          );
-        }
-      } catch (fallbackError) {
-        debugPrint("❌ Fallback download error: $fallbackError");
+      if (path != null) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("❌ Failed to download logs. Try sharing instead.")),
+          SnackBar(content: Text("✅ Logs downloaded to: ${path.split('/').last}")),
+        );
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("❌ Download cancelled")),
         );
       }
+    } catch (e) {
+      debugPrint("❌ Download error: $e");
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("❌ Failed to download logs. Please check permissions.")),
+      );
     }
   }
 
@@ -645,6 +636,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       await file.writeAsString(json.encode(sessionLogs));
       await Share.shareXFiles([XFile(file.path)], text: 'Session Logs');
 
+      // Clean up the temp file after sharing
       Future.delayed(const Duration(seconds: 5), () {
         if (file.existsSync()) file.deleteSync();
       });
@@ -652,7 +644,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       debugPrint("❌ Share error: $e");
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Failed to share logs")),
+        const SnackBar(content: Text("❌ Failed to share logs")),
       );
     }
   }

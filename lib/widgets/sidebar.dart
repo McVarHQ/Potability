@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
@@ -54,60 +53,31 @@ class _SidebarState extends State<Sidebar> {
   Future<void> _downloadLogs(BuildContext context) async {
     try {
       final jsonStr = const JsonEncoder.withIndent('  ').convert(widget.postgresLogs);
-      
-      // For Android 11+ compatibility, save to app's documents directory first
-      final directory = await getApplicationDocumentsDirectory();
-      final fileName = 'potability_logs_${DateTime.now().millisecondsSinceEpoch}.json';
-      final file = File('${directory.path}/$fileName');
-      
-      // Write the file
-      await file.writeAsString(jsonStr);
-      
-      // Share the file instead of using file picker (more reliable)
-      await Share.shareXFiles([XFile(file.path)], text: 'Water Potability Logs');
-      
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('📁 Logs saved and shared: $fileName')),
+      final path = await FilePicker.platform.saveFile(
+        dialogTitle: 'Save All Logs',
+        fileName: 'potability_logs.json',
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+        bytes: utf8.encode(jsonStr), // Provide bytes directly for Android 11+
       );
-      
-      // Clean up the temp file after a delay
-      Future.delayed(const Duration(seconds: 10), () {
-        if (file.existsSync()) file.deleteSync();
-      });
-      
-    } catch (e) {
-      debugPrint("❌ Download error: $e");
-      
-      // Fallback: Try the old method
-      try {
-        final jsonStr = const JsonEncoder.withIndent('  ').convert(widget.postgresLogs);
-        final path = await FilePicker.platform.saveFile(
-          dialogTitle: 'Save All Logs',
-          fileName: 'potability_logs.json',
-          type: FileType.custom,
-          allowedExtensions: ['json'],
-          bytes: utf8.encode(jsonStr), // Provide bytes directly
-        );
 
-        if (path != null) {
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('📁 Logs saved to: $path')),
-          );
-        } else {
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('❌ Save cancelled')),
-          );
-        }
-      } catch (fallbackError) {
-        debugPrint("❌ Fallback download error: $fallbackError");
+      if (path != null) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('❌ Failed to save logs. Try sharing instead.')),
+          SnackBar(content: Text('📁 Logs downloaded to: ${path.split('/').last}')),
+        );
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('❌ Download cancelled')),
         );
       }
+    } catch (e) {
+      debugPrint("❌ Download error: $e");
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('❌ Failed to download logs. Please check permissions.')),
+      );
     }
   }
 
@@ -119,6 +89,11 @@ class _SidebarState extends State<Sidebar> {
       await tempFile.writeAsString(jsonStr);
 
       await Share.shareXFiles([XFile(tempFile.path)], text: 'Water Potability Logs');
+      
+      // Clean up the temp file after sharing
+      Future.delayed(const Duration(seconds: 5), () {
+        if (tempFile.existsSync()) tempFile.deleteSync();
+      });
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
