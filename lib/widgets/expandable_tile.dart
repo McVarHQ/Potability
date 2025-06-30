@@ -40,54 +40,7 @@ class ExpandableTile extends StatefulWidget {
   State<ExpandableTile> createState() => _ExpandableTileState();
 }
 
-class _ExpandableTileState extends State<ExpandableTile> with SingleTickerProviderStateMixin {
-  late AnimationController _animationController;
-  late Animation<double> _scaleAnimation;
-  late Animation<double> _opacityAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 400),
-      vsync: this,
-    );
-    
-    _scaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: 1.02,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
-    
-    _opacityAnimation = Tween<double>(
-      begin: 1.0,
-      end: 0.8,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
-  }
-
-  @override
-  void dispose() {
-    _animationController.dispose();
-    super.dispose();
-  }
-
-  @override
-  void didUpdateWidget(ExpandableTile oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.isShrunken != oldWidget.isShrunken) {
-      if (widget.isShrunken) {
-        _animationController.forward();
-      } else {
-        _animationController.reverse();
-      }
-    }
-  }
-
+class _ExpandableTileState extends State<ExpandableTile> {
   double get minY {
     if (widget.dataPoints.isEmpty) return 0;
     if (widget.isResultTile) return -0.1;
@@ -104,49 +57,36 @@ class _ExpandableTileState extends State<ExpandableTile> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _animationController,
-      builder: (context, child) {
-        return Transform.scale(
-          scale: _scaleAnimation.value,
-          child: Opacity(
-            opacity: _opacityAnimation.value,
-            child: GestureDetector(
-              onTap: widget.onTap,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 400),
-                curve: Curves.easeInOut,
-                width: widget.isExpanded ? double.infinity : null,
-                height: widget.isExpanded ? 300 : (widget.isShrunken ? 80 : 140),
-                margin: EdgeInsets.all(widget.isExpanded ? 0 : 4),
-                padding: EdgeInsets.all(widget.isExpanded ? 16 : 12),
-                decoration: BoxDecoration(
-                  gradient: _getGradient(),
-                  borderRadius: BorderRadius.circular(widget.isExpanded ? 20 : 16),
-                  border: Border.all(
-                    color: _getBorderColor(),
-                    width: widget.isExpanded ? 2 : 1.5,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: _getShadowColor(),
-                      blurRadius: widget.isExpanded ? 20 : 12,
-                      offset: Offset(0, widget.isExpanded ? 8 : 4),
-                    ),
-                    if (!widget.isShrunken)
-                      BoxShadow(
-                        color: Colors.white.withOpacity(0.7),
-                        blurRadius: 8,
-                        offset: const Offset(-2, -2),
-                      ),
-                  ],
-                ),
-                child: widget.isExpanded ? _buildExpandedContent() : _buildCompactContent(),
-              ),
-            ),
+    return GestureDetector(
+      onTap: widget.onTap,
+      child: Container(
+        width: widget.isExpanded ? double.infinity : null,
+        height: widget.isExpanded ? 300 : (widget.isShrunken ? 80 : 140),
+        margin: EdgeInsets.all(widget.isExpanded ? 0 : 4),
+        padding: EdgeInsets.all(widget.isExpanded ? 16 : 12),
+        decoration: BoxDecoration(
+          gradient: _getGradient(),
+          borderRadius: BorderRadius.circular(widget.isExpanded ? 20 : 16),
+          border: Border.all(
+            color: _getBorderColor(),
+            width: widget.isExpanded ? 2 : 1.5,
           ),
-        );
-      },
+          boxShadow: [
+            BoxShadow(
+              color: _getShadowColor(),
+              blurRadius: widget.isExpanded ? 20 : 12,
+              offset: Offset(0, widget.isExpanded ? 8 : 4),
+            ),
+            if (!widget.isShrunken)
+              BoxShadow(
+                color: Colors.white.withOpacity(0.7),
+                blurRadius: 8,
+                offset: const Offset(-2, -2),
+              ),
+          ],
+        ),
+        child: widget.isExpanded ? _buildExpandedContent() : _buildCompactContent(),
+      ),
     );
   }
 
@@ -348,33 +288,41 @@ class _ExpandableTileState extends State<ExpandableTile> with SingleTickerProvid
     final abbreviation = _getAbbreviation(widget.label);
     
     return Padding(
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(4),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              abbreviation,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                abbreviation,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              textAlign: TextAlign.center,
             ),
           ),
-          const SizedBox(height: 4),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              widget.value,
-              style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                color: Colors.black54,
+          const SizedBox(height: 2),
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                widget.value,
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black54,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              textAlign: TextAlign.center,
             ),
           ),
         ],
@@ -414,14 +362,21 @@ class _ExpandableTileState extends State<ExpandableTile> with SingleTickerProvid
           child: _buildIcon(24),
         ),
         const SizedBox(height: 8),
-        Text(
-          widget.predictionResult!.startsWith("Prediction error") ? "Error" : widget.predictionResult!,
-          style: TextStyle(
-            color: _getResultTextColor(),
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
+        Flexible(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              widget.predictionResult!.startsWith("Prediction error") ? "Error" : widget.predictionResult!,
+              style: TextStyle(
+                color: _getResultTextColor(),
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
-          textAlign: TextAlign.center,
         ),
         // Mini graph
         if (widget.dataPoints.isNotEmpty)
@@ -465,27 +420,38 @@ class _ExpandableTileState extends State<ExpandableTile> with SingleTickerProvid
                 ),
                 child: Center(child: _buildIcon(20)),
               ),
-              const SizedBox(height: 8),
-              Text(
-                widget.label,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade700,
-                  fontWeight: FontWeight.w600,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 4),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  widget.value,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+              const SizedBox(height: 6),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    widget.label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade700,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    widget.value,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ),
             ],

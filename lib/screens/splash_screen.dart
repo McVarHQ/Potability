@@ -14,7 +14,7 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
-  bool showStart = false;
+  bool showStartAndLogo = false;
   bool hasStarted = false;
 
   @override
@@ -23,12 +23,15 @@ class _SplashScreenState extends State<SplashScreen>
 
     _controller = AnimationController(vsync: this);
     _controller.addListener(() {
-      if (_controller.value >= 0.48 && !showStart && !hasStarted) {
-        _controller.stop();
-        setState(() => showStart = true);
+      // Show START text and logo after 50% mark and pause animation
+      if (_controller.value >= 0.5 && !showStartAndLogo && !hasStarted) {
+        _controller.stop(); // Pause the animation
+        setState(() => showStartAndLogo = true);
+        
+        // Start floating animation between 0.48 and 0.52
         _controller.repeat(
-          min: 0.45,
-          max: 0.48,
+          min: 0.48,
+          max: 0.52,
           reverse: true,
           period: const Duration(seconds: 2),
         );
@@ -45,9 +48,10 @@ class _SplashScreenState extends State<SplashScreen>
   void _startApp() {
     setState(() {
       hasStarted = true;
-      showStart = false;
+      showStartAndLogo = false; // Hide both START text and logo
     });
 
+    // Stop floating animation and continue to completion
     _controller.stop();
     _controller.forward(from: _controller.value);
 
@@ -84,33 +88,39 @@ class _SplashScreenState extends State<SplashScreen>
             ),
           ),
 
-          // University Logo at bottom
-          Positioned(
-            bottom: 60,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: Image.asset(
-                'assets/uni_logo.png',
-                height: 80,
-                fit: BoxFit.contain,
+          // University Logo at bottom - only show when showStartAndLogo is true
+          if (showStartAndLogo)
+            Positioned(
+              bottom: 60,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Image.asset(
+                  'assets/uni_logo.png',
+                  height: 80,
+                  fit: BoxFit.contain,
+                ),
               ),
             ),
-          ),
 
-          // START text only (no box, no background)
-          if (showStart)
+          // START text spanning screen width - only show when showStartAndLogo is true
+          if (showStartAndLogo)
             Center(
               child: GestureDetector(
                 onTap: _startApp,
-                child: Text(
-                  "START",
-                  style: TextStyle(
-                    fontSize: screenSize.width * 0.08,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'SairaExpanded',
-                    color: startColor,
-                    letterSpacing: 4,
+                child: SizedBox(
+                  width: screenSize.width * 0.9, // Use 90% of screen width
+                  child: FittedBox(
+                    fit: BoxFit.fitWidth,
+                    child: Text(
+                      "START",
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'SairaExpanded',
+                        color: startColor,
+                        letterSpacing: 8,
+                      ),
+                    ),
                   ),
                 ),
               ),

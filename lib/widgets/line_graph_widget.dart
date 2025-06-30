@@ -24,7 +24,7 @@ class LineGraphWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (dataPoints.isEmpty) {
-      return Container(
+      return SizedBox(
         height: isExpanded ? 200 : 60,
         child: Center(
           child: Text(
@@ -79,6 +79,7 @@ class LineGraphWidget extends StatelessWidget {
                   if (index >= 0 && index < timestamps.length) {
                     final time = timestamps[index];
                     return SideTitleWidget(
+                      meta: meta,
                       child: Text(
                         '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}',
                         style: const TextStyle(
@@ -87,7 +88,6 @@ class LineGraphWidget extends StatelessWidget {
                           fontSize: 10,
                         ),
                       ),
-                      meta: meta,
                     );
                   }
                   return const SizedBox.shrink();
@@ -101,6 +101,7 @@ class LineGraphWidget extends StatelessWidget {
                 reservedSize: 42,
                 getTitlesWidget: (value, meta) {
                   return SideTitleWidget(
+                    meta: meta,
                     child: Text(
                       value.toStringAsFixed(1),
                       style: const TextStyle(
@@ -109,7 +110,6 @@ class LineGraphWidget extends StatelessWidget {
                         fontSize: 10,
                       ),
                     ),
-                    meta: meta,
                   );
                 },
               ),
