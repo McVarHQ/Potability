@@ -40,7 +40,9 @@ class ExpandableTile extends StatefulWidget {
   State<ExpandableTile> createState() => _ExpandableTileState();
 }
 
-class _ExpandableTileState extends State<ExpandableTile> {
+class _ExpandableTileState extends State<ExpandableTile> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
   double get minY {
     if (widget.dataPoints.isEmpty) return 0;
     if (widget.isResultTile) return -0.1;
@@ -53,6 +55,66 @@ class _ExpandableTileState extends State<ExpandableTile> {
     if (widget.isResultTile) return 1.1;
     final max = widget.dataPoints.reduce((a, b) => a > b ? a : b);
     return max + (max * 0.1);
+  }
+
+  // Helper method to format Y-axis values for better readability
+  String _formatYAxisValue(double value) {
+    if (value >= 10000) {
+      return '${(value / 1000).toStringAsFixed(1)}K';
+    } else if (value >= 1000) {
+      return '${(value / 1000).toStringAsFixed(2)}K';
+    } else if (value >= 100) {
+      return value.toStringAsFixed(0);
+    } else if (value >= 10) {
+      return value.toStringAsFixed(1);
+    } else {
+      return value.toStringAsFixed(2);
+    }
+  }
+
+  // Helper method to get optimal number of Y-axis divisions
+  int _getOptimalYAxisDivisions() {
+    if (widget.dataPoints.isEmpty) return 4;
+    
+    // For expanded view, use 4 divisions for good spacing
+    if (widget.isExpanded) {
+      return 4; // Use 4 divisions for expanded view
+    }
+    
+    // For compact view, can use more divisions since they're not shown
+    final range = maxY - minY;
+    if (range > 50000) return 4;
+    if (range > 10000) return 5;
+    if (range > 1000) return 6;
+    return 8;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    );
+    if (widget.predicting) {
+      _controller.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant ExpandableTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.predicting && !_controller.isAnimating) {
+      _controller.repeat(reverse: true);
+    } else if (!widget.predicting && _controller.isAnimating) {
+      _controller.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   @override
@@ -165,10 +227,10 @@ class _ExpandableTileState extends State<ExpandableTile> {
               height: 40,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white,
+                color: widget.isResultTile ? _getResultColor() : Colors.white,
                 boxShadow: [
                   BoxShadow(
-                    color: widget.lineColor.withOpacity(0.3),
+                    color: widget.isResultTile ? _getShadowColor() : widget.lineColor.withOpacity(0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -200,6 +262,24 @@ class _ExpandableTileState extends State<ExpandableTile> {
                         fontWeight: FontWeight.w500,
                       ),
                     ),
+                  if (widget.isResultTile && widget.predictionResult != null && !widget.predicting)
+                    Text(
+                      'Result: ${widget.predictionResult!.startsWith("Prediction error") ? "Error" : widget.predictionResult!}',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: _getResultTextColor(),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  if (widget.isResultTile && widget.predicting)
+                    Text(
+                      'Predicting...',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -212,10 +292,12 @@ class _ExpandableTileState extends State<ExpandableTile> {
         
         const SizedBox(height: 16),
         
-        // Graph
+        // Graph - Increased height for better Y-axis spacing
         Expanded(
           child: widget.isResultTile && widget.predicting
-              ? widget.predictionContent ?? const SizedBox.shrink()
+              ? Center(
+                  child: widget.predictionContent ?? const SizedBox.shrink(),
+                )
               : LineGraphWidget(
                   dataPoints: widget.dataPoints,
                   timestamps: widget.timestamps,
@@ -224,6 +306,8 @@ class _ExpandableTileState extends State<ExpandableTile> {
                   isExpanded: true,
                   minY: minY,
                   maxY: maxY,
+                  yAxisFormatter: _formatYAxisValue,
+                  yAxisDivisions: _getOptimalYAxisDivisions(),
                 ),
         ),
         
@@ -264,7 +348,17 @@ class _ExpandableTileState extends State<ExpandableTile> {
 
   Widget _buildShrunkenResultContent() {
     if (widget.predicting) {
-      return widget.predictionContent ?? const SizedBox.shrink();
+      return Center(
+        child: AnimatedBuilder(
+          animation: _controller,
+          builder: (context, child) {
+            return Transform.scale(
+              scale: 0.8 + 0.4 * _controller.value,
+              child: widget.predictionContent ?? const Icon(Icons.water_drop, size: 40, color: aqua),
+            );
+          },
+        ),
+      );
     }
     
     if (widget.predictionResult == null) {
@@ -427,7 +521,7 @@ class _ExpandableTileState extends State<ExpandableTile> {
                   child: Text(
                     widget.label,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 16, // Changed from 12 to 16
                       color: Colors.grey.shade700,
                       fontWeight: FontWeight.w600,
                     ),
@@ -444,7 +538,7 @@ class _ExpandableTileState extends State<ExpandableTile> {
                   child: Text(
                     widget.value,
                     style: const TextStyle(
-                      fontSize: 16,
+                      fontSize: 20, // Changed from 16 to 20
                       fontWeight: FontWeight.bold,
                       color: Colors.black87,
                     ),

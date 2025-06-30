@@ -30,10 +30,10 @@ class _SplashScreenState extends State<SplashScreen>
         
         // Start floating animation between 0.48 and 0.52
         _controller.repeat(
-          min: 0.48,
-          max: 0.52,
+          min: 0.40,
+          max: 0.45,
           reverse: true,
-          period: const Duration(seconds: 2),
+          period: const Duration(seconds: 1),
         );
       }
     });
