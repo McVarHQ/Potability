@@ -491,68 +491,41 @@ class _ExpandableTileState extends State<ExpandableTile> with SingleTickerProvid
 
   Widget _buildNormalSensorContent() {
     return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // Icon and value
-        Expanded(
+        Flexible(
           flex: 3,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: aqua.withOpacity(0.2),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Center(child: _buildIcon(20)),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              widget.label,
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade800,
               ),
-              const SizedBox(height: 6),
-              Flexible(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    widget.label,
-                    style: TextStyle(
-                      fontSize: 16, // Changed from 12 to 16
-                      color: Colors.grey.shade700,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Flexible(
+          flex: 2,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              widget.value,
+              style: const TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
               ),
-              const SizedBox(height: 2),
-              Flexible(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    widget.value,
-                    style: const TextStyle(
-                      fontSize: 20, // Changed from 16 to 20
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ),
-            ],
+              textAlign: TextAlign.center,
+            ),
           ),
         ),
         
-        // Mini graph
+        // Mini graph positioned to overlap if needed
         if (widget.dataPoints.isNotEmpty)
           Expanded(
             flex: 2,

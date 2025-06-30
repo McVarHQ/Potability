@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:potability/widgets/log_tile.dart';
 import 'package:intl/intl.dart';
 
-const String logsApiUrl = 'https://potability-production.up.railway.app/logs';
+const String logsApiUrl = 'https://water-potability.mcblcvr.workers.dev/logs';
 const aqua = Color(0xFF00BCD4);
 
 class DbLogsScreen extends StatefulWidget {

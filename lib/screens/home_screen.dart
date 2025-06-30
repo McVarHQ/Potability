@@ -16,8 +16,8 @@ import 'package:potability/widgets/expandable_tile.dart';
 import 'package:potability/widgets/sidebar.dart';
 
 const aqua = Color(0xFF00BCD4);
-const String apiUrl = 'https://potability-production.up.railway.app/predict';
-const String logsApiUrl = 'https://potability-production.up.railway.app/logs';
+const String apiUrl = 'https://water-potability.mcblcvr.workers.dev/predict';
+const String logsApiUrl = 'https://water-potability.mcblcvr.workers.dev/logs';
 const String broker = 'a33cad5yg72pky-ats.iot.ap-southeast-2.amazonaws.com';
 const String topic = 'esp32/pub';
 
