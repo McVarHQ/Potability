@@ -10,6 +10,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:url_launcher/url_launcher.dart'; 
+
 
 import 'package:potability/widgets/log_tile.dart';
 import 'package:potability/widgets/expandable_tile.dart';
@@ -17,6 +19,7 @@ import 'package:potability/widgets/sidebar.dart';
 
 const aqua = Color(0xFF00BCD4);
 const String apiUrl = 'https://water-potability.mcblcvr.workers.dev/predict';
+const String uniUrl = 'https://chennai.vit.ac.in/';
 const String logsApiUrl = 'https://water-potability.mcblcvr.workers.dev/logs';
 const String broker = 'a33cad5yg72pky-ats.iot.ap-southeast-2.amazonaws.com';
 const String topic = 'esp32/pub';
@@ -358,25 +361,28 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Column(
                     children: [
                       // University Logo
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 10,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Image.asset(
-                          'assets/uni_logo_full.png',
-                          height: 80,
-                          fit: BoxFit.contain,
-                        ),
+                      GestureDetector(
+                        onTap: () => launchUrl(Uri.parse(uniUrl)),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 10,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Image.asset(
+                            'assets/uni_logo_full.png',
+                            height: 80,
+                            fit: BoxFit.contain,
+                          ),
+                        )
                       ),
                       const SizedBox(height: 20),
                       
@@ -466,8 +472,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           itemCount: filteredLogs.length,
                           itemBuilder: (context, index) {
                             final log = filteredLogs[index];
-                            final localTime = DateTime.tryParse(log["timestamp"] ?? "")?.toLocal().toString() ?? "";
-                            log["timestamp"] = localTime;
                             return LogTile(
                               log: log,
                               expanded: expandedIndex == index,
@@ -927,8 +931,71 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
   }
-
+  void launchVITURL() async {
+    if (await canLaunch(uniUrl)) {
+      await launch(uniUrl);
+    } else {
+      throw 'Could not launch $uniUrl';
+    }
+  }
   void showFilterDialog() {
-    // Add any filter dialog logic here if needed.
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text("Filter Logs"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.all_inclusive, color: aqua), // Infinity icon
+                title: const Text("All"),
+                onTap: () {
+                  setState(() {
+                    filteredLogs = List.from(sessionLogs);
+                  });
+                  Navigator.pop(context);
+                },
+              ),
+              ListTile(
+                leading: SvgPicture.asset('assets/leaf.svg', width: 24, color: Colors.green),
+                title: const Text("Potable"),
+                onTap: () {
+                  setState(() {
+                    filteredLogs = sessionLogs.where((log) => log["result"] == "Potable").toList();
+                  });
+                  Navigator.pop(context);
+                },
+              ),
+              ListTile(
+                leading: SvgPicture.asset('assets/block.svg', width: 24, color: Colors.red),
+                title: const Text("Not Potable"),
+                onTap: () {
+                  setState(() {
+                    filteredLogs = sessionLogs.where((log) => 
+                      log["result"] == "Not Potable" || 
+                      (log["result"] != "Potable" && !log["result"].toString().toLowerCase().contains("error"))
+                    ).toList();
+                  });
+                  Navigator.pop(context);
+                },
+              ),
+              ListTile(
+                leading: SvgPicture.asset('assets/danger.svg', width: 24, color: Colors.orange),
+                title: const Text("Error"),
+                onTap: () {
+                  setState(() {
+                    filteredLogs = sessionLogs.where((log) => 
+                      log["result"].toString().toLowerCase().contains("error")
+                    ).toList();
+                  });
+                  Navigator.pop(context);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }

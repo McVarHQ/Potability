@@ -16,6 +16,7 @@ dependencies:
   intl: ^0.20.2
   file_picker: ^10.2.0
   fl_chart: ^1.0.0
+  url_launcher: ^6.1.7
 dependency_overrides:
   material_color_utilities: ^0.13.0
   meta: ^1.17.0

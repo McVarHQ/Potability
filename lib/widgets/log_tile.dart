@@ -4,7 +4,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
 
-
 const aqua = Color(0xFF00BCD4);
 
 class LogTile extends StatefulWidget {
@@ -54,10 +53,45 @@ class _LogTileState extends State<LogTile> {
     }
 
     final timestamp = widget.log["timestamp"];
-    final parsed = DateTime.tryParse(timestamp ?? "")?.toLocal();
-    final timeStr = parsed != null
-        ? DateFormat.yMMMd().add_jm().format(parsed)
-        : (timestamp?.toString() ?? "Unknown time");
+    DateTime? parsed;
+    String timeStr;
+
+    if (timestamp != null) {
+      if (timestamp is DateTime) {
+        parsed = timestamp;
+      } else {
+        String timestampStr = timestamp.toString();
+        parsed = DateTime.tryParse(timestampStr);
+
+        if (parsed != null) {
+          parsed = DateTime.utc(
+            parsed.year,
+            parsed.month,
+            parsed.day,
+            parsed.hour,
+            parsed.minute,
+            parsed.second,
+            parsed.millisecond,
+            parsed.microsecond
+          ).toLocal();
+        } else {
+          try {
+            parsed = DateTime.fromMillisecondsSinceEpoch(int.parse(timestampStr));
+          } catch (e) {
+            try {
+              double seconds = double.parse(timestampStr);
+              parsed = DateTime.fromMillisecondsSinceEpoch((seconds * 1000).round());
+            } catch (e2) {
+              parsed = DateTime.now();
+            }
+          }
+        }
+      }
+
+      timeStr = DateFormat.yMMMd().add_jm().format(parsed);
+    } else {
+      timeStr = "Unknown time";
+    }
 
     final inputs = widget.log["inputs"];
     final isInputValid = inputs is Map<String, dynamic>;
