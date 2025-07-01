@@ -8,6 +8,10 @@ on:
 jobs:
   build_and_deploy:
     runs-on: ubuntu-latest
+    permissions: # <--- ADD THIS BLOCK
+      contents: write # Allows the action to push code
+      pages: write    # Allows the action to manage GitHub Pages deployments
+      id-token: write # Recommended for modern GitHub Pages deployments using OIDC
 
     steps:
       - name: Checkout Code
