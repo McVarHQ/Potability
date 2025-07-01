@@ -45,20 +45,65 @@ class _ExpandableTileState extends State<ExpandableTile> with SingleTickerProvid
 
   double get minY {
     if (widget.dataPoints.isEmpty) return 0;
-    if (widget.isResultTile) return -0.1;
+    if (widget.isResultTile) {
+      // Check if we have error values (0.5) in the data points
+      final hasError = widget.dataPoints.any((point) => point == 0.5);
+      if (hasError) {
+        return -0.1; // Accommodate for error value at 0.5
+      }
+      return -0.1;
+    }
     final min = widget.dataPoints.reduce((a, b) => a < b ? a : b);
     return (min - (min * 0.1)).clamp(0, double.infinity);
   }
 
   double get maxY {
     if (widget.dataPoints.isEmpty) return 100;
-    if (widget.isResultTile) return 1.1;
+    if (widget.isResultTile) {
+      // Check if we have error values (0.5) in the data points
+      final hasError = widget.dataPoints.any((point) => point == 0.5);
+      if (hasError) {
+        return 1.1; // Accommodate for all values: 0 (not potable), 0.5 (error), 1 (potable)
+      }
+      return 1.1;
+    }
     final max = widget.dataPoints.reduce((a, b) => a > b ? a : b);
     return max + (max * 0.1);
   }
 
+  // Helper method to calculate result counts
+  Map<String, int> _getResultCounts() {
+    int potableCount = 0;
+    int errorCount = 0;
+    int notPotableCount = 0;
+
+    for (double value in widget.dataPoints) {
+      if (value == 0.5) {
+        errorCount++;
+      } else if (value >= 0.75) {
+        potableCount++;
+      } else {
+        notPotableCount++;
+      }
+    }
+
+    return {
+      'potable': potableCount,
+      'error': errorCount,
+      'notPotable': notPotableCount,
+    };
+  }
+
   // Helper method to format Y-axis values for better readability
   String _formatYAxisValue(double value) {
+    // Special formatting for result tiles with prediction values
+    if (widget.isResultTile) {
+      if (value <= 0.25) return 'Not Potable';
+      if (value >= 0.25 && value <= 0.75) return 'Error';
+      if (value >= 0.75) return 'Potable';
+      return value.toStringAsFixed(1);
+    }
+    
     if (value >= 10000) {
       return '${(value / 1000).toStringAsFixed(1)}K';
     } else if (value >= 1000) {
@@ -75,6 +120,11 @@ class _ExpandableTileState extends State<ExpandableTile> with SingleTickerProvid
   // Helper method to get optimal number of Y-axis divisions
   int _getOptimalYAxisDivisions() {
     if (widget.dataPoints.isEmpty) return 4;
+    
+    // For result tiles, use 3 divisions to show the three states clearly
+    if (widget.isResultTile) {
+      return 3; // This will show labels at ~0, ~0.5, ~1
+    }
     
     // For expanded view, use 4 divisions for good spacing
     if (widget.isExpanded) {
@@ -311,23 +361,41 @@ class _ExpandableTileState extends State<ExpandableTile> with SingleTickerProvid
                 ),
         ),
         
-        // Legend/Stats
-        if (!widget.isResultTile && widget.dataPoints.isNotEmpty)
+        // Legend/Stats - Different for result tiles vs sensor tiles
+        if (widget.dataPoints.isNotEmpty)
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.8),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildStat('Min', widget.dataPoints.reduce((a, b) => a < b ? a : b).toStringAsFixed(2)),
-                _buildStat('Max', widget.dataPoints.reduce((a, b) => a > b ? a : b).toStringAsFixed(2)),
-                _buildStat('Avg', (widget.dataPoints.reduce((a, b) => a + b) / widget.dataPoints.length).toStringAsFixed(2)),
-              ],
-            ),
+            child: widget.isResultTile
+                ? _buildResultStats()
+                : _buildSensorStats(),
           ),
+      ],
+    );
+  }
+
+  Widget _buildResultStats() {
+    final counts = _getResultCounts();
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceAround,
+      children: [
+        _buildResultStat('Potable', counts['potable']!.toString(), Colors.green.shade600),
+        _buildResultStat('Error', counts['error']!.toString(), Colors.orange.shade600),
+        _buildResultStat('Not Potable', counts['notPotable']!.toString(), Colors.red.shade600),
+      ],
+    );
+  }
+
+  Widget _buildSensorStats() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceAround,
+      children: [
+        _buildStat('Min', widget.dataPoints.reduce((a, b) => a < b ? a : b).toStringAsFixed(2)),
+        _buildStat('Max', widget.dataPoints.reduce((a, b) => a > b ? a : b).toStringAsFixed(2)),
+        _buildStat('Avg', (widget.dataPoints.reduce((a, b) => a + b) / widget.dataPoints.length).toStringAsFixed(2)),
       ],
     );
   }
@@ -604,6 +672,28 @@ class _ExpandableTileState extends State<ExpandableTile> with SingleTickerProvid
             fontSize: 16,
             fontWeight: FontWeight.bold,
             color: Colors.black87,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey.shade600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildResultStat(String label, String value, Color color) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: color,
           ),
         ),
         Text(
