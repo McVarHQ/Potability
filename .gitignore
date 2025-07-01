@@ -18,7 +18,6 @@ migrate_working_dir/
 /linux/
 /windows/
 /macos/
-/web/
 /assets/aws
 /Logs
 /Private
