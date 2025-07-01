@@ -338,7 +338,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const Expanded(
                           child: Text(
-                            'Water Potability',
+                            'AquaSense',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 20,

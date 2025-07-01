@@ -1,11 +1,12 @@
 name: potability
-description: A smart water potability prediction app
+description: A Smart Water Monitoring and Potability Prediction App
 version: 1.0.0+1
 environment:
-  sdk: ">=3.0.0 <4.0.0"
+  sdk: ^3.0.0
 dependencies:
   flutter:
     sdk: flutter
+  flutter_launcher_icons: ^0.14.4
   cupertino_icons: ^1.0.6
   lottie: ^3.3.1
   mqtt_client: ^10.0.0
@@ -59,6 +60,7 @@ flutter:
     - assets/menu.json
     - assets/uni_logo.png
     - assets/uni_logo_full.png
+    - assets/water_drop.png
     - assets/aws/cert.pem
     - assets/aws/private.key
     - assets/aws/CA.pem
@@ -66,3 +68,24 @@ flutter:
     - family: SairaExpanded
       fonts:
         - asset: assets/fonts/Saira_Expanded-Medium.ttf
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/main_logo_circle.png
+  min_sdk_android: 21 
+  remove_alpha_ios: true
+  android_adaptive_icon_foreground: assets/water_drop.png 
+  android_adaptive_icon_background: "#00BCD4"
+  web:
+    generate: true
+    image_path: assets/main_logo_circle.png
+    background_color: "#FFFFFF" 
+    theme_color: "#00BCD4" 
+  windows:
+    generate: true
+    image_path: assets/main_logo_circle.png
+    icon_size: 48 
+  macos:
+    generate: true
+    image_path: assets/main_logo_circle.png

@@ -154,7 +154,7 @@ class _SidebarState extends State<Sidebar> {
                       ),
                       const SizedBox(height: 12),
                       const Text(
-                        "Water Potability",
+                        "AquaSense",
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
