@@ -24,7 +24,7 @@ class _SplashScreenState extends State<SplashScreen>
     _controller = AnimationController(vsync: this);
     _controller.addListener(() {
       // Show START text and logo after 50% mark and pause animation
-      if (_controller.value >= 0.5 && !showStartAndLogo && !hasStarted) {
+      if (_controller.value >= 0.45 && !showStartAndLogo && !hasStarted) {
         _controller.stop(); // Pause the animation
         setState(() => showStartAndLogo = true);
         
