@@ -9,11 +9,11 @@
 ## 🎬 Full Demo
 
 <p align="center">
-  <a href="https://youtube.com/watch?v=your-demo-video-id">
+  <a href="https://youtu.be/bHkZpRCvlCs">
     <img src="./images/miscellaneous/full_demo.gif" alt="AquaSense Full Demo" width="300">
   </a>
   <br>
-  <span style="font-size: 14px; color: gray;"><b>👆 Click to watch the complete demo on YouTube</b></span>
+  <span style="font-size: 14px; color: gray;"><b>👆 Click on this GIF to watch the complete demo on YouTube</b></span>
 </p>
 
 ---
