@@ -1,9 +1,9 @@
-# AquaSense: Smart Water Quality Monitoring & Prediction System
+# AquaSense: Smart Water Quality Monitoring & Prediction App
 
 <p align="center">
   <img src="./assets/main_logo_circle.png" alt="AquaSense Logo" width="150" height="150">
   <br>
-  <span style="font-size: 14px; color: gray;"><b>Real-time IoT water quality monitoring with AI-powered predictions</b></span>
+  <span style="font-size: 14px; color: gray;"><b>This app is designed to operate on live streaming sensor data</b></span>
 </p>
 
 ## 🎬 Full Demo
