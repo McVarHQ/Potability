@@ -20,9 +20,9 @@
 
 ## 📋 Overview
 
-**AquaSense** is a comprehensive full-stack IoT solution that combines real-time water quality monitoring with machine learning-powered predictions. The system integrates hardware sensors, AWS IoT infrastructure, and a Flutter mobile application to provide instant water potability assessments with an intuitive, user-friendly interface.
+**AquaSense** is a robust and scalable full-stack mobile application developed with Flutter, featuring seamless backend model deployments, integrated database solutions, and a highly intuitive, performant frontend experience.
 
-The platform is designed for environmental monitoring, water quality management, and educational purposes, featuring real-time data visualization, trend analysis, and comprehensive logging capabilities.
+ The application provides a seamless bridge between raw data and actionable insights, serving as a powerful tool for environmental professionals, researchers, and educators featuring real-time data visualization, trend analysis, and comprehensive logging capabilities.
 
 ---
 
